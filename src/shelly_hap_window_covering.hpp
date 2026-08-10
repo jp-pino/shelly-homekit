@@ -31,6 +31,11 @@
 #include "shelly_output.hpp"
 #include "shelly_pm.hpp"
 
+#if CS_PLATFORM == CS_P_ESP8266
+#else
+#define SUPPORTS_GDO
+#endif
+
 namespace shelly {
 namespace hap {
 
@@ -47,7 +52,9 @@ class WindowCovering : public Component, public mgos::hap::Service {
   enum class ServiceType {
     WINDOW_COVERING = 0,  // Default HAP Window Covering
     WINDOW = 1,           // HAP Window service type
+#ifdef SUPPORTS_GDO
     GARAGE_DOOR = 2,
+#endif
   };
 
   WindowCovering(int id, Input *in0, Input *in1, Output *out0, Output *out1,

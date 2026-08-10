@@ -36,18 +36,33 @@ WindowCovering::WindowCovering(int id, Input *in0, Input *in1, Output *out0,
                                Output *out1, PowerMeter *pm0, PowerMeter *pm1,
                                struct mgos_config_wc *cfg, ServiceType type)
     : Component(id),
-      Service((SHELLY_HAP_IID_BASE_WINDOW_COVERING +
-               (SHELLY_HAP_IID_STEP_WINDOW_COVERING * (id - 1))),
-              (type == ServiceType::WINDOW
-                   ? &kHAPServiceType_Window
-                   : (type == ServiceType::GARAGE_DOOR
-                          ? &kHAPServiceType_GarageDoorOpener
-                          : &kHAPServiceType_WindowCovering)),
-              (type == ServiceType::WINDOW
-                   ? kHAPServiceDebugDescription_Window
-                   : (type == ServiceType::GARAGE_DOOR
-                          ? kHAPServiceDebugDescription_GarageDoorOpener
-                          : kHAPServiceDebugDescription_WindowCovering))),
+      Service(
+          (SHELLY_HAP_IID_BASE_WINDOW_COVERING +
+           (SHELLY_HAP_IID_STEP_WINDOW_COVERING * (id - 1))),
+          (type == ServiceType::WINDOW ? &kHAPServiceType_Window :
+
+                                       (type == ServiceType::WINDOW_COVERING
+                                            ? &kHAPServiceType_WindowCovering
+                                            :
+#ifdef SUPPORTS_GDO
+
+                                            &kHAPServiceType_GarageDoorOpener
+#else
+                                            &kHAPServiceType_WindowCovering
+#endif
+                                        )),
+          (type == ServiceType::WINDOW
+               ? kHAPServiceDebugDescription_Window
+               : (type == ServiceType::WINDOW_COVERING
+                      ? kHAPServiceDebugDescription_WindowCovering
+                      :
+#ifdef SUPPORTS_GDO
+                      kHAPServiceDebugDescription_GarageDoorOpener
+#else
+                      kHAPServiceDebugDescription_WindowCovering
+#endif
+
+                  ))),
       cfg_(cfg),
       cur_pos_(cfg_->current_pos),
       tgt_pos_(cfg_->current_pos),
@@ -166,6 +181,7 @@ Status WindowCovering::Init() {
       kHAPCharacteristicDebugDescription_ObstructionDetected);
   AddChar(obst_char_);
 
+#ifdef SUPPORTS_GDO
   if (service_type_ == ServiceType::GARAGE_DOOR) {
     cur_state_char_ = new mgos::hap::UInt8Characteristic(
         iid++, &kHAPCharacteristicType_CurrentDoorState, 0, 4, 1,
@@ -208,6 +224,8 @@ Status WindowCovering::Init() {
         kHAPCharacteristicDebugDescription_TargetDoorState);
     AddChar(tgt_state_char_);
   }
+#endif
+
   switch (static_cast<InMode>(cfg_->in_mode)) {
     case InMode::kSeparateMomentary:
     case InMode::kSeparateToggle:
@@ -283,7 +301,11 @@ Status WindowCovering::SetConfig(const std::string &config_json,
   if (in_mode > 3) {
     return mgos::Errorf(STATUS_INVALID_ARGUMENT, "invalid %s", "in_mode");
   }
+#ifdef SUPPORTS_GDO
   if (display_type > 2) {
+#else
+  if (display_type > 1) {
+#endif
     return mgos::Errorf(STATUS_INVALID_ARGUMENT, "invalid %s", "display_type");
   }
   // Apply.
@@ -407,11 +429,15 @@ void WindowCovering::SetCurPos(float new_cur_pos, float p) {
                new_cur_pos, p));
   cur_pos_ = new_cur_pos;
   cfg_->current_pos = cur_pos_;
+#ifdef SUPPORTS_GDO
   if (service_type_ == ServiceType::GARAGE_DOOR) {
     cur_state_char_->RaiseEvent();
   } else {
+#endif
     cur_pos_char_->RaiseEvent();
+#ifdef SUPPORTS_GDO
   }
+#endif
 }
 
 void WindowCovering::SetTgtPos(float new_tgt_pos, const char *src) {
@@ -420,11 +446,15 @@ void WindowCovering::SetTgtPos(float new_tgt_pos, const char *src) {
   LOG(LL_INFO,
       ("WC %d: Tgt pos %.2f -> %.2f (%s)", id(), tgt_pos_, new_tgt_pos, src));
   tgt_pos_ = new_tgt_pos;
+#ifdef SUPPORTS_GDO
   if (service_type_ == ServiceType::GARAGE_DOOR) {
     tgt_state_char_->RaiseEvent();
   } else {
+#endif
     tgt_pos_char_->RaiseEvent();
+#ifdef SUPPORTS_GDO
   }
+#endif
 }
 
 // We want tile taps to cycle the open-stop-close-stop sequence.
@@ -449,6 +479,7 @@ void WindowCovering::HAPSetTgtPos(float value) {
   LOG(LL_INFO, ("WC %d: HAPSetTgtPos %.2f cur %.2f tgt %.2f lmd %d", id(),
                 value, cur_pos_, tgt_pos_, (int) lmd));
 
+#ifdef SUPPORTS_GDO
   if (service_type_ == ServiceType::GARAGE_DOOR) {
     if (value == kFullyClosed) {
       SetTgtPos(kFullyClosed, "HAP");
@@ -467,6 +498,7 @@ void WindowCovering::HAPSetTgtPos(float value) {
     }
     return;
   }
+#endif
 
   // If the specified position is intermediate or we have no basis for guessing,
   // just do what we are told.
@@ -514,12 +546,16 @@ void WindowCovering::Move(Direction dir) {
   out_open_->SetState(want_open, ss);
   out_close_->SetState(want_close, ss);
   if (moving_dir_ != dir) {
+#ifdef SUPPORTS_GDO
     if (service_type_ == ServiceType::GARAGE_DOOR) {
       cur_state_char_->RaiseEvent();
       tgt_state_char_->RaiseEvent();
     } else {
+#endif
       pos_state_char_->RaiseEvent();
+#ifdef SUPPORTS_GDO
     }
+#endif
   }
   moving_dir_ = dir;
   if (dir != Direction::kNone) {
@@ -848,9 +884,12 @@ void CreateHAPWC(int id, Input *in1, Input *in2, Output *out1, Output *out2,
   auto service_type = hap::WindowCovering::ServiceType::WINDOW_COVERING;
   if (wc_cfg->display_type == DISPLAY_TYPE_WINDOW) {
     service_type = hap::WindowCovering::ServiceType::WINDOW;
-  } else if (wc_cfg->display_type == DISPLAY_TYPE_GARAGE_DOOR) {
+  }
+#ifdef SUPPORTS_GDO
+  else if (wc_cfg->display_type == DISPLAY_TYPE_GARAGE_DOOR) {
     service_type = hap::WindowCovering::ServiceType::GARAGE_DOOR;
   }
+#endif
   std::unique_ptr<hap::WindowCovering> wc(
       new hap::WindowCovering(id, in1, in2, out1, out2, pm1, pm2,
                               (struct mgos_config_wc *) wc_cfg, service_type));
