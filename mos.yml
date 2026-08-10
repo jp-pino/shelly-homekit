@@ -789,10 +789,10 @@ conds:
         NVS_ADDR: 0x14000
         NVS_SIZE: 0xC000
         APP_OFFSET: 0x20000
-        APP_SLOT_SIZE: 0x2A0000
+        APP_SLOT_SIZE: 0x2B0000
         MGOS_ROOT_FS_TYPE: LFS
-        MGOS_ROOT_FS_SIZE: 0xE0000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        MGOS_ROOT_FS_SIZE: 0xD0000
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
@@ -862,7 +862,7 @@ conds:
         APP_SLOT_SIZE: 0x280000
         MGOS_ROOT_FS_TYPE: LFS
         MGOS_ROOT_FS_SIZE: 0x100000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
@@ -932,7 +932,7 @@ conds:
         APP_SLOT_SIZE: 0x2A0000
         MGOS_ROOT_FS_TYPE: LFS
         MGOS_ROOT_FS_SIZE: 0xE0000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
@@ -994,10 +994,10 @@ conds:
         NVS_ADDR: 0x14000
         NVS_SIZE: 0xC000
         APP_OFFSET: 0x20000
-        APP_SLOT_SIZE: 0x2A0000
+        APP_SLOT_SIZE: 0x2C0000
         MGOS_ROOT_FS_TYPE: LFS
-        MGOS_ROOT_FS_SIZE: 0xE0000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        MGOS_ROOT_FS_SIZE: 0xC0000
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
@@ -1083,7 +1083,7 @@ conds:
         APP_SLOT_SIZE: 0x2C0000
         MGOS_ROOT_FS_TYPE: LFS
         MGOS_ROOT_FS_SIZE: 0xC0000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
@@ -1172,7 +1172,7 @@ conds:
         APP_SLOT_SIZE: 0x2A0000
         MGOS_ROOT_FS_TYPE: LFS
         MGOS_ROOT_FS_SIZE: 0xE0000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
@@ -1226,7 +1226,7 @@ conds:
         APP_SLOT_SIZE: 0x2A0000
         MGOS_ROOT_FS_TYPE: LFS
         MGOS_ROOT_FS_SIZE: 0xE0000
-        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x720000,0x80000,encrypted"
+        ESP_IDF_EXTRA_PARTITION: "scratch,data,0x80,0x7E0000,0x10000,encrypted"
         ESP_IDF_EXTRA_PARTITION_2: "shelly,data,0x88,0x7F0000,64K,encrypted"
         ESP_IDF_SDKCONFIG_OPTS: >
           ${build_vars.ESP_IDF_SDKCONFIG_OPTS}
