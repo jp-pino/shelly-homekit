@@ -1657,7 +1657,10 @@ async function downloadUpdate(fwURL, spinner, status) {
       .then(async (resp) => {
         console.log(resp);
         let blob = await resp.blob();
-        if (!resp.ok || blob.type != "application/zip") {
+        // GitHub Pages serves zips as application/x-zip-compressed.
+        if (!resp.ok ||
+            !["application/zip", "application/x-zip-compressed"].includes(
+                blob.type)) {
           status.innerText = "Failed, try manually.";
           return;
         }

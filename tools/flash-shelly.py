@@ -1417,7 +1417,7 @@ class Main:
       latest_fw_label = f"{RED}Invalid file{NC}"
       flash_fw_version = '0.0.0'
       download_url = None
-    elif not download_url or (download_url_request is not False and (download_url_request.status_code != 200 or download_url_request.headers.get('Content-Type', '') != 'application/zip')):
+    elif not download_url or (download_url_request is not False and (download_url_request.status_code != 200 or download_url_request.headers.get('Content-Type', '') not in ('application/zip', 'application/x-zip-compressed'))):
       flash_fw_type_str = f"{RED}{flash_fw_type_str}{NC}"
       latest_fw_label = f"{RED}Not available{NC}"
       flash_fw_version = '0.0.0'
