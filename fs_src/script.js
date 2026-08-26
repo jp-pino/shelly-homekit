@@ -1766,14 +1766,9 @@ function checkUpdate() {
   e.innerText = "";
   se.className = "spin";
   console.log("Model:", model, "Version:", curVersion);
-  fetch("https://rojer.me/files/shelly/update.json", {
-    headers: {
-      "X-Model": model,
-      "X-Current-Version": curVersion,
-      "X-Current-Build": lastInfo.fw_build,
-      "X-Device-ID": lastInfo.device_id,
-    }
-  })
+  // Self-hosted update feed (GitHub Pages). No custom headers: GitHub Pages
+  // does not answer CORS preflight requests, and none are needed anyway.
+  fetch("https://jp-pino.github.io/shelly-homekit/update.json")
       .then(resp => resp.json())
       .then((resp) => {
         // save the cookie before anything else, so that if update not

@@ -2,6 +2,7 @@ name: build-shelly-homekit
 on:
   push:
   pull_request:
+  workflow_dispatch:
 jobs:
   build:
     name: Build ${{ matrix.model }}
@@ -68,3 +69,65 @@ jobs:
         with:
            name: all-releases
            pattern: release-*
+  deploy-pages:
+    name: Publish firmware and update.json to GitHub Pages
+    needs: build
+    if: github.repository_owner == 'jp-pino' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Download firmware artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: zips
+      - name: Assemble site
+        run: |
+          VERSION="$(sed -n 's/^version: *//p' mos.yml)$(.github/version.py --suffix 2>/dev/null || true)"
+          echo "Version: ${VERSION}"
+          export VERSION
+          python3 - <<'EOF'
+          import glob, json, os, shutil
+          version = os.environ["VERSION"]
+          base = f"https://jp-pino.github.io/shelly-homekit/{version}"
+          os.makedirs(f"site/{version}", exist_ok=True)
+          urls = {}
+          for p in sorted(glob.glob("zips/**/shelly-homekit-*.zip", recursive=True)):
+              model = os.path.basename(p)[len("shelly-homekit-"):-len(".zip")]
+              urls[model] = f"{base}/shelly-homekit-{model}.zip"
+              shutil.copy(p, f"site/{version}/shelly-homekit-{model}.zip")
+          update = [[".*", {
+              "version": version,
+              "rel_notes": "https://github.com/jp-pino/shelly-homekit/commits/master",
+              "urls": urls,
+          }]]
+          with open("site/update.json", "w") as f:
+              json.dump(update, f, indent=2)
+          with open("site/index.html", "w") as f:
+              f.write(f"<html><body><h1>shelly-homekit {version}</h1><ul>")
+              for m, u in urls.items():
+                  f.write(f'<li><a href="{u}">{m}</a></li>')
+              f.write('</ul><p><a href="update.json">update.json</a></p></body></html>')
+          print(f"Published {len(urls)} models as version {version}")
+          EOF
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
