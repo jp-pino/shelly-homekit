@@ -112,11 +112,31 @@ jobs:
               urls[model] = f"{base}/shelly-homekit-{model}.zip"
               shutil.copy(p, f"site/{version}/shelly-homekit-{model}.zip")
               shutil.copy(p, f"site/latest/shelly-homekit-{model}.zip")
-          update = [[".*", {
-              "version": version,
-              "rel_notes": "https://github.com/jp-pino/shelly-homekit/commits/master",
-              "urls": urls,
-          }]]
+          # Staged like the upstream feed: devices on 2.13+ get this build;
+          # anything older must first hop to the 2.13.3 stepping stone
+          # (old firmware cannot safely OTA straight to current builds).
+          STEP_VER = "2.13.3"
+          STEP_OK = ["Shelly1", "Shelly1L", "Shelly1PM", "Shelly2", "Shelly25",
+                     "ShellyColorBulb", "ShellyDuo", "ShellyI3", "ShellyMini1Gen3",
+                     "ShellyMini1PMGen3", "ShellyPlug", "ShellyPlugS", "ShellyRGBW2",
+                     "ShellyUNI", "ShellyVintage"]
+          STEP_BLOCKED = ["ShellyPlus1", "ShellyPlus1Mini", "ShellyPlus1PM",
+                          "ShellyPlus2PM", "ShellyPlusI4", "ShellyPlusPlugS",
+                          "ShellyPlusRGBWPM"]
+          step_urls = {m: f"https://rojer.me/files/shelly/{STEP_VER}/shelly-homekit-{m}.zip" for m in STEP_OK}
+          step_urls.update({m: "file://invalid" for m in STEP_BLOCKED})
+          update = [
+              ["2.1[3-9].*", {
+                  "version": version,
+                  "rel_notes": "https://github.com/jp-pino/shelly-homekit/commits/master",
+                  "urls": urls,
+              }],
+              [".*", {
+                  "version": STEP_VER,
+                  "rel_notes": f"https://github.com/mongoose-os-apps/shelly-homekit/releases/tag/{STEP_VER}",
+                  "urls": step_urls,
+              }],
+          ]
           with open("site/update.json", "w") as f:
               json.dump(update, f, indent=2)
           with open("site/index.html", "w") as f:
