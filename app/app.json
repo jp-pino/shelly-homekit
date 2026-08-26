@@ -11,9 +11,13 @@
     ],
     "ios": {
       "bundleIdentifier": "io.github.jppino.shellyhomekit.setup",
-      "appleTeamId": "964PLN2C58",
+      "appleTeamId": "C698838EFC",
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "Bluetooth is used to discover nearby Shelly devices and configure their WiFi."
+        "NSBluetoothAlwaysUsageDescription": "Bluetooth is used to discover nearby Shelly devices and configure their WiFi.",
+        "NSLocationWhenInUseUsageDescription": "Location access lets the app read your current WiFi network name to pre-fill it during setup."
+      },
+      "entitlements": {
+        "com.apple.developer.networking.wifi-info": true
       }
     },
     "android": {

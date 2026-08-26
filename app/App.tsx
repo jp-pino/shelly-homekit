@@ -24,6 +24,26 @@ import {StatusBar} from "expo-status-bar";
 import {BleManager, Device} from "react-native-ble-plx";
 import {MosRpcClient, RPC_SVC} from "./src/MosRpc";
 
+// The phone's current WiFi SSID, so the setup form can pre-fill it. iOS only
+// reveals the SSID with the Access WiFi Information entitlement AND granted
+// Location permission; everything is lazy-required and guarded so a missing
+// native module or denied permission simply leaves the field manual.
+async function currentWifiSsid(): Promise<string | null> {
+  try {
+    const Location = require("expo-location");
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) return null;
+    const NetInfo = require("@react-native-community/netinfo").default;
+    const state = await NetInfo.fetch("wifi");
+    const ssid = (state.details as any)?.ssid;
+    return typeof ssid === "string" && ssid && ssid !== "<unknown ssid>" ?
+        ssid :
+        null;
+  } catch {
+    return null;
+  }
+}
+
 const ACCENT = "#0071e3";
 
 type Screen = {kind: "scan"} | {kind: "device"; device: Device};
@@ -220,8 +240,15 @@ function DeviceScreen({device, theme: t, onBack}: {
         const i = await c.call("Shelly.GetInfo");
         if (!cancelled) {
           setInfo(i);
-          setSsid(i?.wifi_ssid ?? "");
           setPhase("form");
+          // Pre-fill: prefer the network the device already knows, otherwise
+          // offer the phone's current WiFi (if iOS will surface it).
+          let s = i?.wifi_ssid ?? "";
+          if (!s) {
+            const phoneSsid = await currentWifiSsid();
+            if (phoneSsid && !cancelled) s = phoneSsid;
+          }
+          if (!cancelled) setSsid(s);
         }
       } catch (e: any) {
         if (!cancelled) setStatus(`Connection failed: ${e.message}`);
