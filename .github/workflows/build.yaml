@@ -105,11 +105,13 @@ jobs:
           version = os.environ["VERSION"]
           base = f"https://jp-pino.github.io/shelly-homekit/{version}"
           os.makedirs(f"site/{version}", exist_ok=True)
+          os.makedirs("site/latest", exist_ok=True)
           urls = {}
           for p in sorted(glob.glob("zips/**/shelly-homekit-*.zip", recursive=True)):
               model = os.path.basename(p)[len("shelly-homekit-"):-len(".zip")]
               urls[model] = f"{base}/shelly-homekit-{model}.zip"
               shutil.copy(p, f"site/{version}/shelly-homekit-{model}.zip")
+              shutil.copy(p, f"site/latest/shelly-homekit-{model}.zip")
           update = [[".*", {
               "version": version,
               "rel_notes": "https://github.com/jp-pino/shelly-homekit/commits/master",
@@ -120,7 +122,7 @@ jobs:
           with open("site/index.html", "w") as f:
               f.write(f"<html><body><h1>shelly-homekit {version}</h1><ul>")
               for m, u in urls.items():
-                  f.write(f'<li><a href="{u}">{m}</a></li>')
+                  f.write(f'<li><a href="{u}">{m}</a> (<a href="latest/shelly-homekit-{m}.zip">latest</a>)</li>')
               f.write('</ul><p><a href="update.json">update.json</a></p></body></html>')
           print(f"Published {len(urls)} models as version {version}")
           EOF

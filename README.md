@@ -93,7 +93,8 @@ Features that are not yet supported:
 
   * Watch a 2 minute [video](https://www.youtube.com/watch?v=BZc-kp4dDRw).
 
-    * *New:* One link for all device types: `http://A.B.C.D/ota?url=http://shelly.rojer.cloud/update`
+    * *New:* One link for all device types: `http://A.B.C.D/ota?url=http://shelly.rojer.cloud/update`  
+    _Note: this installs the upstream project's build. For the self-hosted builds from this fork, use the model-specific links below._
     
     <details>
      
@@ -101,68 +102,68 @@ Features that are not yet supported:
 
       * Gen 1 Devices:
       
-        * Shelly 1: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly1.zip`
+        * Shelly 1: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly1.zip`
 
-        * Shelly 1L: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly1L.zip`
+        * Shelly 1L: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly1L.zip`
 
-        * Shelly 1PM: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly1PM.zip`
+        * Shelly 1PM: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly1PM.zip`
 
-        * Shelly 2: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly2.zip`  
+        * Shelly 2: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly2.zip`  
         _Note: Not for Shelly Dimmer 2!_
 
-        * Shelly 2.5: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly25.zip`
+        * Shelly 2.5: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly25.zip`
 
-        * Shelly Duo: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyDuo.zip`
+        * Shelly Duo: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyDuo.zip`
 
-        * Shelly Duo RGBW (ColorBulb): `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyColorBulb.zip`
+        * Shelly Duo RGBW (ColorBulb): `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyColorBulb.zip`
 
-        * Shelly i3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyI3.zip`
+        * Shelly i3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyI3.zip`
        
-        * Shelly Plug: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlug.zip`
+        * Shelly Plug: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlug.zip`
 
-        * Shelly Plug S: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlugS.zip`
+        * Shelly Plug S: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlugS.zip`
        
-        * Shelly RGBW2: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyRGBW2.zip`  
+        * Shelly RGBW2: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyRGBW2.zip`  
         _Note: The Shelly must be in color mode to flash, flashing in white mode is not supported!_
 
-        * Shelly UNI: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyUNI.zip`
+        * Shelly UNI: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyUNI.zip`
 
-        * Shelly Vintage: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyVintage.zip`
+        * Shelly Vintage: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyVintage.zip`
 
 
       * Gen 2 Devices
 
-        * Shelly Plus 1: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlus1.zip`
+        * Shelly Plus 1: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlus1.zip`
 
-        * Shelly Plus 1 Mini: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlus1Mini.zip`
+        * Shelly Plus 1 Mini: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlus1Mini.zip`
 
-        * Shelly Plus 1PM: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlus1PM.zip`
+        * Shelly Plus 1PM: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlus1PM.zip`
    
-        * Shelly Plus 1PM Mini: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlus1PMMini.zip`
+        * Shelly Plus 1PM Mini: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlus1PMMini.zip`
       
-        * Shelly Plus 2PM: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlus2PM.zip`
+        * Shelly Plus 2PM: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlus2PM.zip`
    
-        * Shelly Plus Plug S: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlusPlugS.zip`
+        * Shelly Plus Plug S: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlusPlugS.zip`
    
-        * Shelly Plus RGBWPM: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlusRGBWPM.zip`
+        * Shelly Plus RGBWPM: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlusRGBWPM.zip`
 
-        * Shelly Plus I4 AC & DC: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlusI4.zip`
+        * Shelly Plus I4 AC & DC: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlusI4.zip`
 
-        * Shelly Plus UNI: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyPlusUni.zip`
+        * Shelly Plus UNI: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyPlusUni.zip`
 
       * Gen 3 Devices
    
-        * Shelly 1 Gen3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly1Gen3.zip`
+        * Shelly 1 Gen3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly1Gen3.zip`
        
-        * Shelly 1PM Gen3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly1PMGen3.zip`
+        * Shelly 1PM Gen3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly1PMGen3.zip`
     
-        * Shelly 2PM Gen3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-Shelly2PMGen3.zip`
+        * Shelly 2PM Gen3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-Shelly2PMGen3.zip`
        
-        * Shelly I4 Gen3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyI4Gen3.zip` 
+        * Shelly I4 Gen3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyI4Gen3.zip` 
 
-        * Shelly Mini 1 Gen3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyMini1Gen3.zip`
+        * Shelly Mini 1 Gen3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyMini1Gen3.zip`
    
-        * Shelly Mini 1 PM Gen3: `http://A.B.C.D/ota?url=http://rojer.me/files/shelly/shelly-homekit-ShellyMini1PMGen3.zip`
+        * Shelly Mini 1 PM Gen3: `http://A.B.C.D/ota?url=https://jp-pino.github.io/shelly-homekit/latest/shelly-homekit-ShellyMini1PMGen3.zip`
 
 
      </details>

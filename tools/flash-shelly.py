@@ -151,7 +151,7 @@ config_file = '.cfg.yaml'
 defaults_config_file = 'flash-shelly.cfg.yaml'
 security_file = 'flash-shelly.auth.yaml'
 stock_info_url = 'https://api.shelly.cloud/files/firmware'
-homekit_info_url = 'https://rojer.me/files/shelly/update.json'
+homekit_info_url = 'https://jp-pino.github.io/shelly-homekit/update.json'
 
 WHITE = '\033[1m'
 RED = '\033[1;91m'
@@ -574,7 +574,7 @@ class Device(Detection):
     logger.debug(f"Mode: {self.info.get('fw_type_str')} To {self.flash_fw_type_str}")
     if self.version:
       self.flash_fw_version = self.version
-      self.download_url = f"http://rojer.me/files/shelly/{self.version}/shelly-homekit-{self.info.get('model')}.zip"
+      self.download_url = f"https://jp-pino.github.io/shelly-homekit/{self.version}/shelly-homekit-{self.info.get('model')}.zip"
     elif main.revert_to_stock is True:
       self.flash_fw_version = 'revert'
       self.download_url = f"http://rojer.me/files/shelly/stock/{self.info.get('stock_fw_model')}.zip"
