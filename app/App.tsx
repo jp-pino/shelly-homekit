@@ -31,6 +31,18 @@ import {QrCode} from "./src/QrCode";
 // reveals the SSID with the Access WiFi Information entitlement AND granted
 // Location permission; everything is lazy-required and guarded so a missing
 // native module or denied permission simply leaves the field manual.
+// Copy text to the clipboard. Lazy-required so a build without the native
+// module (before a rebuild lands) fails gracefully instead of crashing.
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    const Clipboard = require("expo-clipboard");
+    await Clipboard.setStringAsync(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function currentWifiSsid(): Promise<string | null> {
   try {
     const Location = require("expo-location");
@@ -225,6 +237,7 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [status, setStatus] = useState<string | null>(null);
   const [hap, setHap] = useState<HapSetup | null>(null);
   const [hapBusy, setHapBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
@@ -242,7 +255,14 @@ function DeviceScreen({device, theme: t, onBack}: {
         };
         clientRef.current = c;
         setClient(c);
-        const i = await c.call("Shelly.GetInfo");
+        // GetInfoExt includes WiFi state (ssid/ip/rssi); fall back to the
+        // basic GetInfo if a build doesn't expose it.
+        let i;
+        try {
+          i = await c.call("Shelly.GetInfoExt");
+        } catch {
+          i = await c.call("Shelly.GetInfo");
+        }
         if (!cancelled) {
           setInfo(i);
           setPhase("form");
@@ -325,6 +345,24 @@ function DeviceScreen({device, theme: t, onBack}: {
             {info.model} · {info.version} · {info.device_id}
           </Text>
         )}
+        {info?.wifi_ssid ? (
+          <View style={[styles.row, {marginTop: 6}]}>
+            <View style={[styles.wifiDot, {
+              backgroundColor: info.wifi_conn_ip ? t.online : t.muted,
+            }]} />
+            <Text style={[styles.hint, {color: t.ink}]}>
+              {info.wifi_ssid}
+              <Text style={{color: t.muted}}>
+                {info.wifi_conn_ip ?
+                    `  ${info.wifi_conn_ip}${
+                        info.wifi_conn_rssi ?
+                            `  ${info.wifi_conn_rssi} dBm` :
+                            ""}` :
+                    "  not connected"}
+              </Text>
+            </Text>
+          </View>
+        ) : null}
         {phase === "connecting" && !status && (
           <View style={styles.row}>
             <ActivityIndicator color={ACCENT} />
@@ -400,6 +438,18 @@ function DeviceScreen({device, theme: t, onBack}: {
           ) : (
             <View style={{alignItems: "center"}}>
               <Text style={[styles.hapCode, {color: t.ink}]}>{hap.code}</Text>
+              <View style={{alignSelf: "stretch"}}>
+                <Button
+                  title={copied ? "Copied ✓" : "Copy code"}
+                  secondary
+                  onPress={async () => {
+                    if (await copyToClipboard(hap.code)) {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }
+                  }}
+                />
+              </View>
               <Text style={[styles.hint, styles.center, {color: t.muted}]}>
                 In the <Text style={{fontWeight: "600"}}>Home</Text> app: tap +,
                 Add Accessory, then “More options…” and enter this code.
@@ -459,6 +509,7 @@ interface Theme {
   ink: string;
   muted: string;
   inputBg: string;
+  online: string;
 }
 
 const lightTheme: Theme = {
@@ -468,6 +519,7 @@ const lightTheme: Theme = {
   ink: "#1a2027",
   muted: "#5f6b78",
   inputBg: "#ffffff",
+  online: "#34c759",
 };
 
 const darkTheme: Theme = {
@@ -477,6 +529,7 @@ const darkTheme: Theme = {
   ink: "#e8ecf1",
   muted: "#98a2ad",
   inputBg: "#21262e",
+  online: "#30d158",
 };
 
 const styles = StyleSheet.create({
@@ -492,6 +545,7 @@ const styles = StyleSheet.create({
   error: {color: "#d7343f", marginTop: 8},
   deviceName: {fontSize: 15, fontWeight: "600", fontVariant: ["tabular-nums"]},
   hapCode: {fontSize: 30, fontWeight: "700", letterSpacing: 2, marginVertical: 12, fontVariant: ["tabular-nums"]},
+  wifiDot: {width: 8, height: 8, borderRadius: 4, marginRight: 7},
   input: {borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginVertical: 6, fontSize: 15},
   button: {backgroundColor: ACCENT, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10, marginBottom: 8},
   buttonSecondary: {backgroundColor: "transparent"},
