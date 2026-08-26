@@ -14,6 +14,7 @@ import {
   PermissionsAndroid,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +24,8 @@ import {
 import {StatusBar} from "expo-status-bar";
 import {BleManager, Device} from "react-native-ble-plx";
 import {MosRpcClient, RPC_SVC} from "./src/MosRpc";
+import {setupHomeKit, HapSetup} from "./src/HomeKit";
+import {QrCode} from "./src/QrCode";
 
 // The phone's current WiFi SSID, so the setup form can pre-fill it. iOS only
 // reveals the SSID with the Access WiFi Information entitlement AND granted
@@ -220,6 +223,8 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [ssid, setSsid] = useState("");
   const [pass, setPass] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [hap, setHap] = useState<HapSetup | null>(null);
+  const [hapBusy, setHapBusy] = useState(false);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
@@ -289,12 +294,28 @@ function DeviceScreen({device, theme: t, onBack}: {
     }
   }, [ssid, pass]);
 
+  const startHomeKit = useCallback(async () => {
+    const c = clientRef.current;
+    if (!c || !info) return;
+    setHapBusy(true);
+    setStatus(null);
+    try {
+      const s = await setupHomeKit(c, info);
+      setHap(s);
+    } catch (e: any) {
+      setStatus(`HomeKit setup failed: ${e.message}`);
+    } finally {
+      setHapBusy(false);
+    }
+  }, [info]);
+
   const webUrl = info?.wifi_conn_ip ?
       `http://${info.wifi_conn_ip}/` :
       `http://${(info?.device_id ?? device.name ?? "").toLowerCase()}.local/`;
 
   return (
-    <View style={styles.fill}>
+    <ScrollView style={styles.fill} contentContainerStyle={{paddingBottom: 24}}
+                keyboardShouldPersistTaps="handled">
       <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
         <Text style={[styles.h1, {color: t.ink}]}>
           {info?.name || device.name}
@@ -361,8 +382,44 @@ function DeviceScreen({device, theme: t, onBack}: {
         </View>
       )}
 
+      {info && phase !== "connecting" && (
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <Text style={[styles.h1, {color: t.ink}]}>HomeKit</Text>
+          {!hap ? (
+            <>
+              <Text style={[styles.hint, {color: t.muted}]}>
+                Generate a pairing code and add this device to Apple Home.
+                The device must be on your WiFi to finish pairing.
+              </Text>
+              <Button
+                title={hapBusy ? "Preparing…" : "Set up HomeKit"}
+                disabled={hapBusy}
+                onPress={startHomeKit}
+              />
+            </>
+          ) : (
+            <View style={{alignItems: "center"}}>
+              <QrCode value={hap.url} size={220} />
+              <Text style={[styles.hapCode, {color: t.ink}]}>{hap.code}</Text>
+              <Text style={[styles.hint, styles.center, {color: t.muted}]}>
+                Scan in the Home app, or tap below to add it now.
+              </Text>
+              <View style={{alignSelf: "stretch"}}>
+                <Button
+                  title="Add to Apple Home"
+                  onPress={() => Linking.openURL(hap.url).catch(
+                      () => Alert.alert(
+                          "Could not open Home",
+                          "Enter this code in the Home app: " + hap.code))}
+                />
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+
       <Button title="Back to scan" secondary onPress={onBack} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -427,6 +484,7 @@ const styles = StyleSheet.create({
   center: {textAlign: "center", marginTop: 24},
   error: {color: "#d7343f", marginTop: 8},
   deviceName: {fontSize: 15, fontWeight: "600", fontVariant: ["tabular-nums"]},
+  hapCode: {fontSize: 30, fontWeight: "700", letterSpacing: 2, marginVertical: 12, fontVariant: ["tabular-nums"]},
   input: {borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginVertical: 6, fontSize: 15},
   button: {backgroundColor: ACCENT, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10, marginBottom: 8},
   buttonSecondary: {backgroundColor: "transparent"},
