@@ -1,0 +1,377 @@
+/*
+ * Shelly HomeKit Setup - companion app.
+ *
+ * Discovers shelly-homekit devices over BLE and configures their WiFi via
+ * RPC-over-GATT (see src/MosRpc.ts). Once a device is on the network, all
+ * further management happens in its self-hosted web UI.
+ */
+import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
+} from "react-native";
+import {StatusBar} from "expo-status-bar";
+import {BleManager, Device} from "react-native-ble-plx";
+import {MosRpcClient} from "./src/MosRpc";
+
+const ACCENT = "#0071e3";
+
+type Screen = {kind: "scan"} | {kind: "device"; device: Device};
+
+async function ensurePermissions(): Promise<boolean> {
+  if (Platform.OS !== "android") return true;
+  const wanted = [
+    PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+    PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+  ].filter(Boolean);
+  const res = await PermissionsAndroid.requestMultiple(wanted);
+  return Object.values(res).every((v) => v === "granted");
+}
+
+export default function App() {
+  const dark = useColorScheme() === "dark";
+  const manager = useMemo(() => new BleManager(), []);
+  const [screen, setScreen] = useState<Screen>({kind: "scan"});
+  const t = dark ? darkTheme : lightTheme;
+
+  useEffect(() => () => manager.destroy(), [manager]);
+
+  return (
+    <View style={[styles.root, {backgroundColor: t.page}]}>
+      <StatusBar style={dark ? "light" : "dark"} />
+      <Text style={[styles.wordmark, {color: t.ink}]}>
+        Shelly-<Text style={styles.wordmarkBold}>HomeKit</Text>
+      </Text>
+      {screen.kind === "scan" ? (
+        <ScanScreen
+          manager={manager}
+          theme={t}
+          onPick={(device) => setScreen({kind: "device", device})}
+        />
+      ) : (
+        <DeviceScreen
+          device={screen.device}
+          theme={t}
+          onBack={() => setScreen({kind: "scan"})}
+        />
+      )}
+    </View>
+  );
+}
+
+function ScanScreen({manager, theme: t, onPick}: {
+  manager: BleManager;
+  theme: Theme;
+  onPick: (d: Device) => void;
+}) {
+  const [devices, setDevices] = useState<Map<string, Device>>(new Map());
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startScan = useCallback(async () => {
+    setError(null);
+    if (!(await ensurePermissions())) {
+      setError("Bluetooth permissions are required to scan.");
+      return;
+    }
+    setDevices(new Map());
+    setScanning(true);
+    manager.startDeviceScan(null, {allowDuplicates: false}, (err, device) => {
+      if (err) {
+        setError(err.message);
+        setScanning(false);
+        return;
+      }
+      if (device?.name && /^shelly/i.test(device.name)) {
+        setDevices((prev) => new Map(prev).set(device.id, device));
+      }
+    });
+    setTimeout(() => {
+      manager.stopDeviceScan();
+      setScanning(false);
+    }, 15000);
+  }, [manager]);
+
+  useEffect(() => {
+    startScan();
+    return () => manager.stopDeviceScan();
+  }, [manager, startScan]);
+
+  const list = [...devices.values()];
+  return (
+    <View style={styles.fill}>
+      <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+        <Text style={[styles.h1, {color: t.ink}]}>Nearby devices</Text>
+        <Text style={[styles.hint, {color: t.muted}]}>
+          Devices advertise over Bluetooth while they have no WiFi configured.
+          Already-configured devices are managed from their web interface.
+        </Text>
+        {error && <Text style={[styles.error]}>{error}</Text>}
+      </View>
+      <FlatList
+        data={list}
+        keyExtractor={(d) => d.id}
+        renderItem={({item}) => (
+          <Pressable
+            onPress={() => {
+              manager.stopDeviceScan();
+              onPick(item);
+            }}
+            style={({pressed}) => [
+              styles.card,
+              styles.row,
+              {backgroundColor: t.card, borderColor: t.border, opacity: pressed ? 0.7 : 1},
+            ]}>
+            <View style={styles.fill}>
+              <Text style={[styles.deviceName, {color: t.ink}]}>{item.name}</Text>
+              <Text style={[styles.hint, {color: t.muted}]}>
+                RSSI {item.rssi ?? "?"} dBm
+              </Text>
+            </View>
+            <Text style={{color: ACCENT, fontWeight: "600"}}>Set up</Text>
+          </Pressable>
+        )}
+        ListEmptyComponent={
+          <Text style={[styles.hint, styles.center, {color: t.muted}]}>
+            {scanning ? "Scanning…" : "No devices found."}
+          </Text>
+        }
+      />
+      <Button
+        title={scanning ? "Scanning…" : "Scan again"}
+        disabled={scanning}
+        onPress={startScan}
+      />
+    </View>
+  );
+}
+
+function DeviceScreen({device, theme: t, onBack}: {
+  device: Device;
+  theme: Theme;
+  onBack: () => void;
+}) {
+  const [client, setClient] = useState<MosRpcClient | null>(null);
+  const [info, setInfo] = useState<any>(null);
+  const [phase, setPhase] =
+      useState<"connecting" | "form" | "saving" | "joined" | "handoff">(
+          "connecting");
+  const [ssid, setSsid] = useState("");
+  const [pass, setPass] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const clientRef = useRef<MosRpcClient | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const c = await MosRpcClient.connect(device);
+        if (cancelled) {
+          void c.close();
+          return;
+        }
+        c.onDisconnect = () => {
+          // Expected once WiFi comes up: BLE is a setup-only channel.
+          setPhase((p) => (p === "saving" || p === "joined" ? "handoff" : p));
+        };
+        clientRef.current = c;
+        setClient(c);
+        const i = await c.call("Shelly.GetInfo");
+        if (!cancelled) {
+          setInfo(i);
+          setSsid(i?.wifi_ssid ?? "");
+          setPhase("form");
+        }
+      } catch (e: any) {
+        if (!cancelled) setStatus(`Connection failed: ${e.message}`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void clientRef.current?.close();
+    };
+  }, [device]);
+
+  const save = useCallback(async () => {
+    const c = clientRef.current;
+    if (!c || !ssid) return;
+    setPhase("saving");
+    setStatus("Sending WiFi configuration…");
+    try {
+      await c.call(
+          "Shelly.SetWifiConfig", {sta: {enable: true, ssid, pass}});
+      setStatus("Waiting for the device to join the network…");
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const inf = await c.call("Shelly.GetInfo", undefined, 5000);
+        if (inf?.wifi_conn_ip) {
+          setInfo(inf);
+          setPhase("joined");
+          setStatus(null);
+          return;
+        }
+      }
+      setStatus("The device did not report an IP yet - check your WiFi password.");
+      setPhase("form");
+    } catch (e: any) {
+      // A dropped BLE link right after saving usually means WiFi came up
+      // and BLE shut down (bt.keep_enabled=false); onDisconnect switches
+      // the phase to "handoff" in that case.
+      if (clientRef.current) setStatus(e.message);
+    }
+  }, [ssid, pass]);
+
+  const webUrl = info?.wifi_conn_ip ?
+      `http://${info.wifi_conn_ip}/` :
+      `http://${(info?.device_id ?? device.name ?? "").toLowerCase()}.local/`;
+
+  return (
+    <View style={styles.fill}>
+      <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+        <Text style={[styles.h1, {color: t.ink}]}>
+          {info?.name || device.name}
+        </Text>
+        {info && (
+          <Text style={[styles.hint, {color: t.muted}]}>
+            {info.model} · {info.version} · {info.device_id}
+          </Text>
+        )}
+        {phase === "connecting" && !status && (
+          <View style={styles.row}>
+            <ActivityIndicator color={ACCENT} />
+            <Text style={[styles.hint, {color: t.muted}]}> Connecting…</Text>
+          </View>
+        )}
+        {status && <Text style={[styles.hint, {color: t.muted}]}>{status}</Text>}
+      </View>
+
+      {(phase === "form" || phase === "saving") && (
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <Text style={[styles.h1, {color: t.ink}]}>WiFi Setup</Text>
+          <TextInput
+            style={[styles.input, {color: t.ink, borderColor: t.border, backgroundColor: t.inputBg}]}
+            placeholder="Network name (SSID)"
+            placeholderTextColor={t.muted}
+            autoCapitalize="none"
+            value={ssid}
+            onChangeText={setSsid}
+          />
+          <TextInput
+            style={[styles.input, {color: t.ink, borderColor: t.border, backgroundColor: t.inputBg}]}
+            placeholder="Password"
+            placeholderTextColor={t.muted}
+            secureTextEntry
+            value={pass}
+            onChangeText={setPass}
+          />
+          <Button
+            title={phase === "saving" ? "Saving…" : "Join WiFi"}
+            disabled={phase === "saving" || !ssid}
+            onPress={save}
+          />
+        </View>
+      )}
+
+      {(phase === "joined" || phase === "handoff") && (
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <Text style={[styles.h1, {color: t.ink}]}>
+            {phase === "joined" ? "Connected" : "Setup sent"}
+          </Text>
+          <Text style={[styles.hint, {color: t.muted}]}>
+            {phase === "joined" ?
+                `The device is online at ${info?.wifi_conn_ip}.` :
+                "Bluetooth disconnected - this usually means the device " +
+                    "joined your WiFi and closed its setup channel."}
+            {" "}Everything else - HomeKit pairing, settings, live power - is
+            in the device's web interface.
+          </Text>
+          <Button
+            title="Open Web Interface"
+            onPress={() => Linking.openURL(webUrl).catch(
+                () => Alert.alert("Could not open", webUrl))}
+          />
+        </View>
+      )}
+
+      <Button title="Back to scan" secondary onPress={onBack} />
+    </View>
+  );
+}
+
+function Button({title, onPress, disabled, secondary}: {
+  title: string;
+  onPress: () => void;
+  disabled?: boolean;
+  secondary?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={({pressed}) => [
+        styles.button,
+        secondary && styles.buttonSecondary,
+        (disabled || pressed) && {opacity: 0.6},
+      ]}>
+      <Text style={[styles.buttonText, secondary && {color: ACCENT}]}>
+        {title}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface Theme {
+  page: string;
+  card: string;
+  border: string;
+  ink: string;
+  muted: string;
+  inputBg: string;
+}
+
+const lightTheme: Theme = {
+  page: "#eef0f4",
+  card: "#ffffff",
+  border: "rgba(16,24,38,0.12)",
+  ink: "#1a2027",
+  muted: "#5f6b78",
+  inputBg: "#ffffff",
+};
+
+const darkTheme: Theme = {
+  page: "#0e1116",
+  card: "#171b21",
+  border: "rgba(255,255,255,0.1)",
+  ink: "#e8ecf1",
+  muted: "#98a2ad",
+  inputBg: "#21262e",
+};
+
+const styles = StyleSheet.create({
+  root: {flex: 1, paddingTop: 64, paddingHorizontal: 14},
+  fill: {flex: 1},
+  wordmark: {fontSize: 26, fontWeight: "300", textAlign: "center", letterSpacing: -0.5, marginBottom: 14},
+  wordmarkBold: {fontWeight: "700"},
+  card: {borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12},
+  row: {flexDirection: "row", alignItems: "center"},
+  h1: {fontSize: 17, fontWeight: "600", marginBottom: 6},
+  hint: {fontSize: 13, lineHeight: 18},
+  center: {textAlign: "center", marginTop: 24},
+  error: {color: "#d7343f", marginTop: 8},
+  deviceName: {fontSize: 15, fontWeight: "600", fontVariant: ["tabular-nums"]},
+  input: {borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginVertical: 6, fontSize: 15},
+  button: {backgroundColor: ACCENT, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10, marginBottom: 8},
+  buttonSecondary: {backgroundColor: "transparent"},
+  buttonText: {color: "#fff", fontWeight: "600", fontSize: 15},
+});

@@ -237,6 +237,31 @@ conds:
         MGOS_ROOT_FS_SIZE: 0x60000
         APP_SLOT_SIZE: 0x190000
 
+  # BLE provisioning for the companion app: devices advertise their device.id
+  # over BLE and accept RPCs (Shelly.GetInfo, Shelly.SetWifiConfig, ...) via
+  # the rpc-gatts GATT service. With bt.keep_enabled=false BLE is only active
+  # until WiFi STA is configured, so it is purely a setup channel; set it to
+  # true (Config.Set) to keep devices BLE-discoverable permanently.
+  - when: mos.platform == "esp32"
+    apply:
+      libs:
+        - location: https://github.com/mongoose-os-libs/bt-common
+        - location: https://github.com/mongoose-os-libs/rpc-gatts
+      config_schema:
+        - ["bt.enable", true]
+        - ["bt.adv_enable", true]
+        - ["bt.keep_enabled", false]
+
+  - when: mos.platform == "esp32c3"
+    apply:
+      libs:
+        - location: https://github.com/mongoose-os-libs/bt-common
+        - location: https://github.com/mongoose-os-libs/rpc-gatts
+      config_schema:
+        - ["bt.enable", true]
+        - ["bt.adv_enable", true]
+        - ["bt.keep_enabled", false]
+
   - when: build_vars.MODEL == "Shelly1"
     apply:
       name: switch1 # To allow OTA from stock fw.

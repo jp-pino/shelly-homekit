@@ -9,6 +9,12 @@ Firmware is compatible with stock and can be uploaded via OTA (Watch a 2 minute 
 
 Reverting to stock firmware is also possible [see here](https://github.com/mongoose-os-apps/shelly-homekit/wiki/Flashing#reverting-to-stock-firmware).
 
+**Companion app:** ESP32-family devices (Plus/Mini/Gen3) can be discovered
+and given WiFi credentials over Bluetooth LE with the React Native app in
+[`app/`](app/) — see its [README](app/README.md). BLE is a setup-only
+channel by default; all ongoing management stays in the device's web
+interface.
+
 ## Supported devices and features
 
 ### Gen 3 Devices

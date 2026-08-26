@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Shelly HomeKit Setup",
+    "slug": "shelly-homekit-setup",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "bundleIdentifier": "io.github.jppino.shellyhomekit.setup",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "Bluetooth is used to discover nearby Shelly devices and configure their WiFi."
+      }
+    },
+    "android": {
+      "package": "io.github.jppino.shellyhomekit.setup",
+      "permissions": [
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["central"],
+          "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to use Bluetooth to set up Shelly devices"
+        }
+      ]
+    ]
+  }
+}
