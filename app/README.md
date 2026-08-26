@@ -35,6 +35,24 @@ npx expo run:ios --device      # or: npx expo run:android --device
 Requires Xcode (iOS) or Android Studio (Android). The `react-native-ble-plx`
 config plugin injects the Bluetooth permissions declared in `app.json`.
 
+### Signing (iOS)
+
+No Apple Team ID is committed — set your own at build time so this public
+repo stays account-neutral. Either open `ios/ShellyHomeKitSetup.xcworkspace`
+in Xcode and pick your team under Signing & Capabilities, or pass it to
+xcodebuild:
+
+```
+xcodebuild -workspace ios/ShellyHomeKitSetup.xcworkspace \
+  -scheme ShellyHomeKitSetup -configuration Debug \
+  -destination 'id=<your-device-udid>' \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=<YOUR_TEAM_ID> build
+```
+
+SSID auto-fill needs the **Access WiFi Information** entitlement, which is
+only available to a paid team whose account has that capability enabled;
+without it the SSID field stays manual (everything else works).
+
 ## Flow
 
 1. **Scan** — lists BLE devices whose name starts with `shelly`.
