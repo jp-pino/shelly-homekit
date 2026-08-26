@@ -51,6 +51,14 @@ export class MosRpcClient {
   static async connect(raw: Device): Promise<MosRpcClient> {
     const device = await raw.connect({requestMTU: 247});
     await device.discoverAllServicesAndCharacteristics();
+    const services = await device.services();
+    if (!services.some((s) => s.uuid.toLowerCase() === RPC_SVC)) {
+      await device.cancelConnection().catch(() => {});
+      throw new Error(
+          "This device does not expose the setup service. It is likely " +
+          "running stock Shelly firmware - convert it to shelly-homekit " +
+          "first (see the web flashing guide).");
+    }
     const client = new MosRpcClient(device);
     const mtu = device.mtu ?? 23;
     client.chunkSize = Math.max(20, mtu - 3);
@@ -114,13 +122,48 @@ export class MosRpcClient {
 
   private async sendFrame(frame: object): Promise<void> {
     const bytes = Buffer.from(JSON.stringify(frame), "utf8");
-    await this.device.writeCharacteristicWithResponseForService(
-        RPC_SVC, RPC_TX_CTL, be32(bytes.length).toString("base64"));
-    for (let off = 0; off < bytes.length; off += this.chunkSize) {
+    // 1) Announce the frame length (big-endian u32) on tx_ctl.
+    try {
       await this.device.writeCharacteristicWithResponseForService(
-          RPC_SVC, RPC_DATA,
-          bytes.subarray(off, off + this.chunkSize).toString("base64"));
+          RPC_SVC, RPC_TX_CTL, be32(bytes.length).toString("base64"));
+    } catch (e: any) {
+      throw new Error(this.describeWriteError(e, "announcing the request"));
     }
+    // 2) Stream the frame on the data characteristic. rpc-gatts' data char is
+    // Write-with-response; a few peripherals only accept write-without-response
+    // over a weak link, so fall back to that before giving up.
+    for (let off = 0; off < bytes.length; off += this.chunkSize) {
+      const chunk = bytes.subarray(off, off + this.chunkSize).toString("base64");
+      try {
+        await this.device.writeCharacteristicWithResponseForService(
+            RPC_SVC, RPC_DATA, chunk);
+      } catch (e: any) {
+        try {
+          await this.device.writeCharacteristicWithoutResponseForService(
+              RPC_SVC, RPC_DATA, chunk);
+        } catch {
+          throw new Error(this.describeWriteError(e, "sending the request"));
+        }
+      }
+    }
+  }
+
+  // Turn a raw GATT write rejection into something a person can act on. The
+  // giveaway for stock Shelly firmware (or any secured GATT) is an
+  // authentication/encryption status, since it requires BLE pairing that
+  // shelly-homekit's setup channel does not.
+  private describeWriteError(e: any, during: string): string {
+    const msg = String(e?.reason || e?.message || e || "");
+    if (/authenticat|encrypt|insufficient|pair|bond/i.test(msg)) {
+      return "This device requires Bluetooth pairing, which usually means " +
+          "it is still on stock Shelly firmware. Convert it to shelly-homekit " +
+          "first, then set it up here.";
+    }
+    if (/disconnect|was cancelled|not connected/i.test(msg)) {
+      return "Bluetooth disconnected while " + during +
+          " — move closer to the device and try again.";
+    }
+    return `Failed while ${during}: ${msg}`;
   }
 
   private async receiveFrame(len: number): Promise<void> {
