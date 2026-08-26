@@ -36,12 +36,9 @@ export class MosRpcClient {
   private device: Device;
   private nextId = Math.floor(Math.random() * 1000) + 1;
   private chunkSize = 20; // ATT default MTU (23) minus 3-byte header.
-  private rxSub?: Subscription;
   private discSub?: Subscription;
-  private pending = new Map<
-      number, {resolve: (v: any) => void; reject: (e: Error) => void}>();
-  private queue: Promise<void> = Promise.resolve();
-  private receiving = false;
+  private queue: Promise<any> = Promise.resolve();
+  private alive = true;
   onDisconnect?: () => void;
 
   private constructor(device: Device) {
@@ -63,15 +60,9 @@ export class MosRpcClient {
     const mtu = device.mtu ?? 23;
     client.chunkSize = Math.max(20, mtu - 3);
     client.discSub = device.onDisconnected(() => {
-      client.failAll(new Error("disconnected"));
+      client.alive = false;
       client.onDisconnect?.();
     });
-    client.rxSub = device.monitorCharacteristicForService(
-        RPC_SVC, RPC_RX_CTL, (err, ch) => {
-          if (err || !ch?.value) return;
-          const len = Buffer.from(ch.value, "base64").readUInt32BE(0);
-          if (len > 0) void client.receiveFrame(len);
-        });
     return client;
   }
 
@@ -80,44 +71,41 @@ export class MosRpcClient {
   }
 
   async close(): Promise<void> {
-    this.rxSub?.remove();
+    this.alive = false;
     this.discSub?.remove();
-    this.failAll(new Error("closed"));
     try {
       await this.device.cancelConnection();
     } catch {}
   }
 
-  private failAll(err: Error) {
-    for (const p of this.pending.values()) p.reject(err);
-    this.pending.clear();
-  }
-
   /*
-   * Calls are serialized: the transport has a single half-duplex frame
-   * buffer, so only one frame is ever in flight.
+   * Calls are serialized: the transport has a single half-duplex frame buffer,
+   * so only one request/response is ever in flight. Rather than rely on rx_ctl
+   * notifications (whose delivery is unreliable through react-native-ble-plx
+   * when a characteristic advertises both notify and indicate), we send the
+   * request and then poll rx_ctl by reading it until the device reports a
+   * response frame - the same scheme as the reference mongoose client.
    */
   call(method: string, params?: object, timeoutMs = 15000): Promise<any> {
-    const id = this.nextId++;
-    const result = new Promise<any>((resolve, reject) => {
-      this.pending.set(id, {resolve, reject});
-      setTimeout(() => {
-        if (this.pending.delete(id)) {
-          reject(new Error(`${method}: timed out after ${timeoutMs}ms`));
-        }
-      }, timeoutMs);
-    });
-    this.queue = this.queue
-                     .then(() => this.sendFrame(
-                               {id, method, ...(params ? {params} : {})}))
-                     .catch((e) => {
-                       const p = this.pending.get(id);
-                       if (p) {
-                         this.pending.delete(id);
-                         p.reject(e instanceof Error ? e : new Error(String(e)));
-                       }
-                     });
+    const run = async () => {
+      const id = this.nextId++;
+      await this.sendFrame({id, method, ...(params ? {params} : {})});
+      const frame = await this.receiveResponse(timeoutMs, method);
+      if (frame.error) {
+        const e = frame.error as MosRpcError;
+        throw new Error(`RPC error ${e.code}: ${e.message ?? ""}`);
+      }
+      return frame.result;
+    };
+    const result = this.queue.then(run, run);
+    // Keep the queue chained but swallow errors so one failure does not wedge
+    // every later call.
+    this.queue = result.catch(() => {});
     return result;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   private async sendFrame(frame: object): Promise<void> {
@@ -166,44 +154,35 @@ export class MosRpcClient {
     return `Failed while ${during}: ${msg}`;
   }
 
-  private async receiveFrame(len: number): Promise<void> {
-    if (this.receiving) return;
-    this.receiving = true;
-    try {
-      const parts: Buffer[] = [];
-      let got = 0;
-      while (got < len) {
-        const ch = await this.device.readCharacteristicForService(
-            RPC_SVC, RPC_DATA);
-        if (!ch.value) break;
-        const part = Buffer.from(ch.value, "base64");
-        if (part.length === 0) break;
-        parts.push(part);
-        got += part.length;
+  // Poll rx_ctl until the device announces a response frame, then read the
+  // data characteristic until the whole frame is collected and parse it.
+  // Reading rx_ctl resets the device's send offset, so we read it exactly
+  // once per response (to learn the length) and never again mid-frame.
+  private async receiveResponse(timeoutMs: number, method: string):
+      Promise<any> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!this.alive) throw new Error(`${method}: disconnected`);
+      const ctl = await this.device.readCharacteristicForService(
+          RPC_SVC, RPC_RX_CTL);
+      const len =
+          ctl.value ? Buffer.from(ctl.value, "base64").readUInt32BE(0) : 0;
+      if (len > 0) {
+        const parts: Buffer[] = [];
+        let got = 0;
+        while (got < len) {
+          const ch = await this.device.readCharacteristicForService(
+              RPC_SVC, RPC_DATA);
+          if (!ch.value) break;
+          const part = Buffer.from(ch.value, "base64");
+          if (part.length === 0) break;
+          parts.push(part);
+          got += part.length;
+        }
+        return JSON.parse(Buffer.concat(parts).toString("utf8"));
       }
-      this.dispatch(Buffer.concat(parts).toString("utf8"));
-    } catch {
-      // Read failed - connection is likely gone; onDisconnected handles it.
-    } finally {
-      this.receiving = false;
+      await this.sleep(80);
     }
-  }
-
-  private dispatch(text: string) {
-    let frame: any;
-    try {
-      frame = JSON.parse(text);
-    } catch {
-      return;
-    }
-    const p = this.pending.get(frame.id);
-    if (!p) return;
-    this.pending.delete(frame.id);
-    if (frame.error) {
-      const e = frame.error as MosRpcError;
-      p.reject(new Error(`RPC error ${e.code}: ${e.message ?? ""}`));
-    } else {
-      p.resolve(frame.result);
-    }
+    throw new Error(`${method}: timed out after ${timeoutMs}ms`);
   }
 }
