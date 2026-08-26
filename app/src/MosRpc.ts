@@ -121,7 +121,12 @@ export class MosRpcClient {
     // Write-with-response; a few peripherals only accept write-without-response
     // over a weak link, so fall back to that before giving up.
     for (let off = 0; off < bytes.length; off += this.chunkSize) {
-      const chunk = bytes.subarray(off, off + this.chunkSize).toString("base64");
+      // NB: Buffer.subarray() returns a plain Uint8Array under the RN buffer
+      // polyfill, whose toString("base64") yields a comma-joined byte list
+      // rather than base64. Re-wrap in a real Buffer so the encoding is right.
+      const chunk =
+          Buffer.from(bytes.subarray(off, off + this.chunkSize)).toString(
+              "base64");
       try {
         await this.device.writeCharacteristicWithResponseForService(
             RPC_SVC, RPC_DATA, chunk);
