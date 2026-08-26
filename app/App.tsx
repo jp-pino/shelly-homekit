@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import {StatusBar} from "expo-status-bar";
 import {BleManager, Device} from "react-native-ble-plx";
-import {MosRpcClient} from "./src/MosRpc";
+import {MosRpcClient, RPC_SVC} from "./src/MosRpc";
 
 const ACCENT = "#0071e3";
 
@@ -45,7 +45,9 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>({kind: "scan"});
   const t = dark ? darkTheme : lightTheme;
 
-  useEffect(() => () => manager.destroy(), [manager]);
+  useEffect(() => () => {
+    void manager.destroy();
+  }, [manager]);
 
   return (
     <View style={[styles.root, {backgroundColor: t.page}]}>
@@ -85,6 +87,26 @@ function ScanScreen({manager, theme: t, onPick}: {
       setError("Bluetooth permissions are required to scan.");
       return;
     }
+    // A JS reload leaves the native manager mid-flight; make sure any prior
+    // scan is stopped and Bluetooth is actually powered on before scanning,
+    // otherwise startDeviceScan silently finds nothing.
+    manager.stopDeviceScan();
+    const state = await manager.state();
+    if (state !== "PoweredOn") {
+      setError(
+          state === "PoweredOff" ?
+              "Bluetooth is off — turn it on in Settings." :
+              "Waiting for Bluetooth…");
+      await new Promise<void>((resolve) => {
+        const sub = manager.onStateChange((s) => {
+          if (s === "PoweredOn") {
+            sub.remove();
+            resolve();
+          }
+        }, true);
+      });
+      setError(null);
+    }
     setDevices(new Map());
     setScanning(true);
     manager.startDeviceScan(null, {allowDuplicates: false}, (err, device) => {
@@ -93,7 +115,13 @@ function ScanScreen({manager, theme: t, onPick}: {
         setScanning(false);
         return;
       }
-      if (device?.name && /^shelly/i.test(device.name)) {
+      // Match by name OR by advertised service UUID, so a device whose name
+      // is missing in the advert (common) still shows if it exposes the RPC
+      // service.
+      const named = device?.name && /^shelly/i.test(device.name);
+      const svc = device?.serviceUUIDs?.some(
+          (u) => u.toLowerCase() === RPC_SVC);
+      if (device && (named || svc)) {
         setDevices((prev) => new Map(prev).set(device.id, device));
       }
     });
@@ -104,8 +132,10 @@ function ScanScreen({manager, theme: t, onPick}: {
   }, [manager]);
 
   useEffect(() => {
-    startScan();
-    return () => manager.stopDeviceScan();
+    void startScan();
+    return () => {
+      void manager.stopDeviceScan();
+    };
   }, [manager, startScan]);
 
   const list = [...devices.values()];
