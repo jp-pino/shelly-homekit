@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
   <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
@@ -401,7 +402,7 @@
             <span id="revert_status"></span>
           </div>
           <div id="revert_msg" style="text-align: center; display: none">Please consider reporting missing features
-            <a href="https://github.com/mongoose-os-apps/shelly-homekit/issues">on GitHub</a>.
+            <a href="https://github.com/jp-pino/shelly-homekit/issues">on GitHub</a>.
           </div>
         </div>
         <form style="display: inline">
@@ -422,9 +423,9 @@
   <div class="container">
     <div class="form" style="text-align: center">
       &copy; Copyright <a
-        href="https://github.com/mongoose-os-apps/shelly-homekit/blob/master/AUTHORS.md">Shelly-HomeKit
+        href="https://github.com/jp-pino/shelly-homekit/blob/master/AUTHORS.md">Shelly-HomeKit
         contributors</a>.
-      <br>Use <a href="https://github.com/mongoose-os-apps/shelly-homekit/issues">GitHub</a> to report bugs and
+      <br>Use <a href="https://github.com/jp-pino/shelly-homekit/issues">GitHub</a> to report bugs and
       request features. If you like the firmware consider a <a href="https://github.com/mongoose-os-apps/shelly-homekit?tab=readme-ov-file#support">Donation</a>.
       <br>
     </div>
@@ -448,6 +449,17 @@
         <div class="form-control" id="power_stats_container" style="display: none;">
           <label for="power_stats">Power:</label>
           <span id="power_stats"></span>
+        </div>
+        <div class="power-chart" id="power_chart_container" style="display: none;">
+          <div class="pc-head">
+            <span class="pc-now"><b id="pc_now">0</b><span class="pc-unit"> W</span></span>
+            <span class="pc-chips">
+              <span class="pc-chip pc-chip-i" id="pc_i" style="display: none"></span>
+              <span class="pc-chip pc-chip-v" id="pc_v" style="display: none"></span>
+            </span>
+          </div>
+          <svg id="power_chart" viewBox="0 0 300 72" preserveAspectRatio="none"></svg>
+          <div class="pc-foot" id="pc_range"></div>
         </div>
         <div>
           <div class="form-control">

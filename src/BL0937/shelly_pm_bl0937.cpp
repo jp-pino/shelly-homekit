@@ -25,13 +25,14 @@
 namespace shelly {
 
 BL0937PowerMeter::BL0937PowerMeter(int id, int cf_pin, int cf1_pin, int sel_pin,
-                                   int meas_time, float apc)
+                                   int meas_time, float apc, float cpc)
     : PowerMeter(id),
       cf_pin_(cf_pin),
       cf1_pin_(cf1_pin),
       sel_pin_(sel_pin),
       meas_time_(meas_time),
       apc_(apc),
+      cpc_(cpc),
       meas_timer_(std::bind(&BL0937PowerMeter::MeasureTimerCB, this)) {
 }
 
@@ -80,6 +81,15 @@ StatusOr<float> BL0937PowerMeter::GetEnergyWH() {
   return aea_;
 }
 
+StatusOr<float> BL0937PowerMeter::GetCurrentA() {
+  // SEL is held low, so CF1 pulses track RMS current; usable once the
+  // pulses/sec -> amps coefficient has been calibrated.
+  if (cf1_pin_ < 0 || cpc_ <= 0) {
+    return mgos::Errorf(STATUS_UNIMPLEMENTED, "current not calibrated");
+  }
+  return ca_;
+}
+
 // static
 IRAM void BL0937PowerMeter::GPIOIntHandler(int pin, void *arg) {
   (*((uint32_t *) arg))++;
@@ -94,6 +104,7 @@ void BL0937PowerMeter::MeasureTimerCB() {
   float cfps = (cf_count / elapsed_sec), cf1ps = (cf1_count / elapsed_sec);
   apa_ = cfps * apc_;                       // Watts
   aea_ += (apa_ / (3600.0f / meas_time_));  // Watt-hours
+  ca_ = cf1ps * cpc_;                       // Amps
   LOG(LL_DEBUG, ("cfcnt %d cfps %.2f, cf1cnt %d cf1ps %.2f; apa %.2f aea %.2f",
                  (int) cf_count, cfps, (int) cf1_count, cf1ps, apa_, aea_));
   // Start new measurement cycle.

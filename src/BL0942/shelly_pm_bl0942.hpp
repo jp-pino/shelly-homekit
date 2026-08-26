@@ -37,6 +37,8 @@ class BL0942PowerMeter : public PowerMeter {
   Status Init() override;
   StatusOr<float> GetPowerW() override;
   StatusOr<float> GetEnergyWH() override;
+  StatusOr<float> GetVoltageV() override;
+  StatusOr<float> GetCurrentA() override;
 
  private:
   void MeasureTimerCB();
@@ -46,6 +48,8 @@ class BL0942PowerMeter : public PowerMeter {
 
   float apa_ = 0;  // Last active power reading, W.
   float aea_ = 0;  // Accumulated active energy, Wh.
+  float vo_ = 0;   // Last voltage reading, V.
+  float ia_ = 0;   // Last current reading, A.
                    //
   bool ReadReg(uint8_t reg, uint8_t *rx_buf, size_t len);
   bool WriteReg(uint8_t reg, uint32_t val);

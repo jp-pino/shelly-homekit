@@ -24,12 +24,13 @@ namespace shelly {
 class BL0937PowerMeter : public PowerMeter {
  public:
   BL0937PowerMeter(int id, int cf_pin, int cf1_pin, int sel_pin, int meas_time,
-                   float apc);
+                   float apc, float cpc = 0);
   virtual ~BL0937PowerMeter();
 
   Status Init() override;
   StatusOr<float> GetPowerW() override;
   StatusOr<float> GetEnergyWH() override;
+  StatusOr<float> GetCurrentA() override;
 
  private:
   static void GPIOIntHandler(int pin, void *arg);
@@ -37,12 +38,14 @@ class BL0937PowerMeter : public PowerMeter {
 
   const int cf_pin_, cf1_pin_, sel_pin_, meas_time_;
   const float apc_;
+  const float cpc_;  // CF1 pulses/sec -> amps; 0 = current not calibrated.
 
   volatile uint32_t cf_count_ = 0, cf1_count_ = 0;
   int64_t meas_start_ = 0;
 
   float apa_ = 0;  // Last active power reading, W.
   float aea_ = 0;  // Accumulated active energy, Wh.
+  float ca_ = 0;   // Last current reading, A.
 
   mgos::Timer meas_timer_;
 };

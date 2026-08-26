@@ -17,12 +17,22 @@
 
 #include "shelly_pm.hpp"
 
+#include "mgos.hpp"
+
 namespace shelly {
 
 PowerMeter::PowerMeter(int id) : id_(id) {
 }
 
 PowerMeter::~PowerMeter() {
+}
+
+StatusOr<float> PowerMeter::GetVoltageV() {
+  return mgos::Errorf(STATUS_UNIMPLEMENTED, "voltage measurement");
+}
+
+StatusOr<float> PowerMeter::GetCurrentA() {
+  return mgos::Errorf(STATUS_UNIMPLEMENTED, "current measurement");
 }
 
 int PowerMeter::id() const {

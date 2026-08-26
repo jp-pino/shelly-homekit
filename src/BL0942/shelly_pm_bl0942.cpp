@@ -109,6 +109,14 @@ StatusOr<float> BL0942PowerMeter::GetEnergyWH() {
   return aea_;
 }
 
+StatusOr<float> BL0942PowerMeter::GetVoltageV() {
+  return vo_;
+}
+
+StatusOr<float> BL0942PowerMeter::GetCurrentA() {
+  return ia_;
+}
+
 bool BL0942PowerMeter::WriteReg(uint8_t reg, uint32_t val) {
   uint8_t tx_buf[6] = {BL_WRITE | BL_ADDR,
                        reg,
@@ -192,6 +200,8 @@ void BL0942PowerMeter::MeasureTimerCB() {
 
       apa_ = wa;
       aea_ = cf / eref;
+      vo_ = vo;
+      ia_ = vi;
 
       LOG(LL_DEBUG, ("vo: %.1f wa: %.2f i: %.2f fr: %.2f ae: %.2f", vo, wa, vi,
                      fr, aea_));

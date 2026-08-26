@@ -34,6 +34,9 @@ class PowerMeter {
   virtual Status Init() = 0;
   virtual StatusOr<float> GetPowerW() = 0;
   virtual StatusOr<float> GetEnergyWH() = 0;
+  // Optional; meters that can measure them override these.
+  virtual StatusOr<float> GetVoltageV();
+  virtual StatusOr<float> GetCurrentA();
 
  private:
   const int id_;

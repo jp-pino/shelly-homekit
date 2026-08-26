@@ -1112,13 +1112,96 @@ function updateElement(key, value, info) {
   }
 }
 
+// Rolling per-component history for the live power chart.
+// One sample per UI refresh (1s), 3 minutes deep.
+const powerChartLen = 180;
+let powerHistory = {};
+
+function round1(v) {
+  return Math.round(v * 10) / 10;
+}
+
 function updatePowerStats(c, cd) {
   if (cd.apower === undefined) return;
 
-  apower = Math.round(cd.apower * 10) / 10;
-  console.log(apower)
-  updateInnerText(el(c, "power_stats"), `${apower}W, ${cd.aenergy}Wh`);
+  let stats = `${round1(cd.apower)}W`;
+  if (cd.voltage !== undefined) stats += `, ${round1(cd.voltage)}V`;
+  if (cd.current !== undefined) {
+    stats += `, ${Math.round(cd.current * 1000) / 1000}A`;
+  }
+  stats += `, ${cd.aenergy}Wh`;
+  updateInnerText(el(c, "power_stats"), stats);
   el(c, "power_stats_container").style.display = "block";
+
+  let h = powerHistory[cd.id] || (powerHistory[cd.id] = []);
+  h.push({p: cd.apower, i: cd.current, v: cd.voltage});
+  if (h.length > powerChartLen) h.shift();
+  drawPowerChart(c, h);
+}
+
+// Quadratic midpoint smoothing for a polyline through [x, y] points.
+function smoothPath(pts) {
+  let f = (p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`;
+  if (pts.length < 3) return "M" + pts.map(f).join(" L");
+  let d = `M${f(pts[0])}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    let mx = (pts[i][0] + pts[i + 1][0]) / 2;
+    let my = (pts[i][1] + pts[i + 1][1]) / 2;
+    d += ` Q${f(pts[i])} ${mx.toFixed(1)},${my.toFixed(1)}`;
+  }
+  return d + ` L${f(pts[pts.length - 1])}`;
+}
+
+function drawPowerChart(c, h) {
+  let svg = el(c, "power_chart");
+  if (!svg || h.length < 2) return;
+  const w = 300, ht = 72, pad = 3;
+  // Newest sample pinned to the right edge; the chart fills leftwards.
+  let x = (j) => ((powerChartLen - h.length + j) / (powerChartLen - 1)) * w;
+  let y = (v, max) => ht - pad - (v / max) * (ht - 2 * pad);
+  let pMax = Math.max(1, ...h.map((s) => s.p));
+  let line = smoothPath(h.map((s, j) => [x(j), y(s.p, pMax)]));
+  let x0 = x(0).toFixed(1), x1 = x(h.length - 1).toFixed(1);
+  let gid = `pcg-${c.id}`;
+  let inner = `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop class="pc-grad-hi" offset="0"/>` +
+      `<stop class="pc-grad-lo" offset="1"/></linearGradient></defs>` +
+      `<line class="pc-grid" x1="0" y1="${(ht / 3).toFixed(1)}" x2="${w}" y2="${
+                  (ht / 3).toFixed(1)}"/>` +
+      `<line class="pc-grid" x1="0" y1="${(ht * 2 / 3).toFixed(1)}" x2="${
+                  w}" y2="${(ht * 2 / 3).toFixed(1)}"/>` +
+      `<path class="pc-area" fill="url(#${gid})" d="${line} L${x1},${ht} L${
+                  x0},${ht} Z"/>` +
+      `<path class="pc-line" vector-effect="non-scaling-stroke" d="${line}"/>`;
+  if (h.filter((s) => s.i !== undefined).length > 1) {
+    let iMax = Math.max(0.05, ...h.map((s) => s.i || 0));
+    let iPts = [];
+    h.forEach((s, j) => {
+      if (s.i !== undefined) iPts.push([x(j), y(s.i, iMax)]);
+    });
+    inner += `<path class="pc-iline" vector-effect="non-scaling-stroke" d="${
+        smoothPath(iPts)}"/>`;
+  }
+  svg.innerHTML = inner;
+  let last = h[h.length - 1];
+  updateInnerText(el(c, "pc_now"), String(round1(last.p)));
+  let ie = el(c, "pc_i");
+  if (last.i !== undefined) {
+    updateInnerText(ie, `${Math.round(last.i * 1000) / 1000} A`);
+    ie.style.display = "inline";
+  }
+  let ve = el(c, "pc_v");
+  if (last.v !== undefined) {
+    updateInnerText(ve, `${round1(last.v)} V`);
+    ve.style.display = "inline";
+  }
+  let peak = Math.max(...h.map((s) => s.p));
+  let avg = h.reduce((a, s) => a + s.p, 0) / h.length;
+  updateInnerText(
+      el(c, "pc_range"),
+      `peak ${round1(peak)} W \u00b7 avg ${round1(avg)} W \u00b7 last ${
+          h.length}s`);
+  el(c, "power_chart_container").style.display = "block";
 }
 
 function getInfo() {
@@ -1765,7 +1848,7 @@ function checkUpdate() {
   let e = el("update_status");
   let se = el("update_btn_spinner");
   let errMsg =
-      "Failed, check <a href=\"https://github.com/mongoose-os-apps/shelly-homekit/releases\">GitHub</a>.";
+      "Failed, check <a href=\"https://jp-pino.github.io/shelly-homekit/\">the firmware site</a>.";
   e.innerText = "";
   se.className = "spin";
   console.log("Model:", model, "Version:", curVersion);

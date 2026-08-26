@@ -394,3 +394,99 @@ input:checked + .slider:before {
   background: var(--primary);
   color: white;
 }
+
+/* Live power chart */
+.power-chart {
+  margin: 0.5em 0;
+  padding: 0.7em 0.9em 0.55em;
+  background: var(--background-alt);
+  border-radius: var(--corner);
+}
+
+.power-chart .pc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.35em;
+}
+
+.power-chart .pc-now b {
+  font-size: 1.7em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.power-chart .pc-unit {
+  opacity: 0.6;
+}
+
+.power-chart .pc-chips {
+  display: flex;
+  gap: 0.7em;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+.power-chart .pc-chip::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  margin-right: 0.35em;
+}
+
+.power-chart .pc-chip-i::before {
+  background: var(--switch-enabled);
+}
+
+.power-chart .pc-chip-v::before {
+  background: #a2a7b4;
+}
+
+.power-chart svg {
+  width: 100%;
+  height: 72px;
+  display: block;
+  border-radius: 6px;
+}
+
+.power-chart .pc-grid {
+  stroke: var(--foreground);
+  opacity: 0.08;
+  stroke-width: 1;
+}
+
+.power-chart .pc-grad-hi {
+  stop-color: var(--primary);
+  stop-opacity: 0.35;
+}
+
+.power-chart .pc-grad-lo {
+  stop-color: var(--primary);
+  stop-opacity: 0;
+}
+
+.power-chart .pc-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.power-chart .pc-iline {
+  fill: none;
+  stroke: var(--switch-enabled);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-dasharray: 4 3;
+  opacity: 0.9;
+}
+
+.power-chart .pc-foot {
+  margin-top: 0.35em;
+  font-size: 0.8em;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}

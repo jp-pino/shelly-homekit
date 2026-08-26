@@ -97,6 +97,14 @@ StatusOr<std::string> ShellySwitch::GetInfoJSON() const {
     if (energy.ok()) {
       mgos::JSONAppendStringf(&res, ", aenergy: %.3f", energy.ValueOrDie());
     }
+    auto voltage = out_pm_->GetVoltageV();
+    if (voltage.ok()) {
+      mgos::JSONAppendStringf(&res, ", voltage: %.2f", voltage.ValueOrDie());
+    }
+    auto current = out_pm_->GetCurrentA();
+    if (current.ok()) {
+      mgos::JSONAppendStringf(&res, ", current: %.3f", current.ValueOrDie());
+    }
   }
   res.append("}");
   return res;
