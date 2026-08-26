@@ -77,7 +77,7 @@ static HAPIPAccessoryServerStorage s_ip_storage = {
         },
 };
 
-#ifdef MGOS_HAVE_BT_COMMON
+#if defined(MGOS_HAVE_BT_COMMON) && HAP_BLE
 // TODO: make dynamic
 static HAPBLEGATTTableElementRef gattTableElements[100];
 static HAPBLESessionCacheElementRef
@@ -813,7 +813,7 @@ void InitApp() {
               .mfiTokenAuth = &s_mfi_auth,
           },
   };
-#ifdef MGOS_HAVE_BT_COMMON
+#if defined(MGOS_HAVE_BT_COMMON) && HAP_BLE
   // BLE Preipheral Manager.
   if (mgos_sys_config_get_bt_enable()) {
     static HAPPlatformBLEPeripheralManagerOptions blepm_opts = {};

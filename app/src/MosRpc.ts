@@ -103,11 +103,12 @@ export class MosRpcClient {
                      .then(() => this.sendFrame(
                                {id, method, ...(params ? {params} : {})}))
                      .catch((e) => {
-                       if (this.pending.delete(id)) {
-                         throw e;
+                       const p = this.pending.get(id);
+                       if (p) {
+                         this.pending.delete(id);
+                         p.reject(e instanceof Error ? e : new Error(String(e)));
                        }
-                     })
-                     .catch(() => {});
+                     });
     return result;
   }
 
