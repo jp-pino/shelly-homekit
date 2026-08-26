@@ -5,7 +5,10 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "bundleIdentifier": "io.github.jppino.shellyhomekit.setup",
       "appleTeamId": "964PLN2C58",
@@ -26,10 +29,13 @@
         "react-native-ble-plx",
         {
           "isBackgroundEnabled": false,
-          "modes": ["central"],
+          "modes": [
+            "central"
+          ],
           "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to use Bluetooth to set up Shelly devices"
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }
