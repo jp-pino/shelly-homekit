@@ -25,7 +25,8 @@
 namespace shelly {
 
 BL0937PowerMeter::BL0937PowerMeter(int id, int cf_pin, int cf1_pin, int sel_pin,
-                                   int meas_time, float apc, float cpc)
+                                   int meas_time, float apc, float cpc,
+                                   float vpc)
     : PowerMeter(id),
       cf_pin_(cf_pin),
       cf1_pin_(cf1_pin),
@@ -33,6 +34,7 @@ BL0937PowerMeter::BL0937PowerMeter(int id, int cf_pin, int cf1_pin, int sel_pin,
       meas_time_(meas_time),
       apc_(apc),
       cpc_(cpc),
+      vpc_(vpc),
       meas_timer_(std::bind(&BL0937PowerMeter::MeasureTimerCB, this)) {
 }
 
@@ -82,12 +84,21 @@ StatusOr<float> BL0937PowerMeter::GetEnergyWH() {
 }
 
 StatusOr<float> BL0937PowerMeter::GetCurrentA() {
-  // SEL is held low, so CF1 pulses track RMS current; usable once the
-  // pulses/sec -> amps coefficient has been calibrated.
+  // CF1 pulses track RMS current while SEL selects the current channel;
+  // usable once the pulses/sec -> amps coefficient has been calibrated.
   if (cf1_pin_ < 0 || cpc_ <= 0) {
     return mgos::Errorf(STATUS_UNIMPLEMENTED, "current not calibrated");
   }
   return ca_;
+}
+
+StatusOr<float> BL0937PowerMeter::GetVoltageV() {
+  // Requires a SEL pin to switch CF1 to the voltage channel and a calibrated
+  // pulses/sec -> volts coefficient.
+  if (!VoltageSensingEnabled()) {
+    return mgos::Errorf(STATUS_UNIMPLEMENTED, "voltage not calibrated");
+  }
+  return vo_;
 }
 
 // static
@@ -102,11 +113,38 @@ void BL0937PowerMeter::MeasureTimerCB() {
   if (cf_count < 2) cf_count = 0;    // Noise
   if (cf1_count < 2) cf1_count = 0;  // Noise
   float cfps = (cf_count / elapsed_sec), cf1ps = (cf1_count / elapsed_sec);
+  // CF (power) is independent of SEL and measured every cycle.
   apa_ = cfps * apc_;                       // Watts
   aea_ += (apa_ / (3600.0f / meas_time_));  // Watt-hours
-  ca_ = cf1ps * cpc_;                       // Amps
-  LOG(LL_DEBUG, ("cfcnt %d cfps %.2f, cf1cnt %d cf1ps %.2f; apa %.2f aea %.2f",
-                 (int) cf_count, cfps, (int) cf1_count, cf1ps, apa_, aea_));
+
+  // CF1 (current or voltage). Ignore the reading during a settle cycle (the
+  // first cycle after a SEL switch), while the CF1 output stabilizes.
+  if (!cf1_settling_) {
+    if (cf1_on_voltage_) {
+      if (vpc_ > 0) vo_ = cf1ps * vpc_;  // Volts
+    } else {
+      if (cpc_ > 0) ca_ = cf1ps * cpc_;  // Amps
+    }
+  }
+  // If both channels are calibrated, alternate SEL: consume one valid reading,
+  // then switch and spend the next cycle settling. Each channel thus refreshes
+  // every 4 cycles; power keeps refreshing every cycle. When voltage sensing is
+  // off, SEL stays on the current channel and this whole block is skipped.
+  if (VoltageSensingEnabled() && cpc_ > 0) {
+    if (cf1_settling_) {
+      cf1_settling_ = false;  // Settle cycle done; next cycle reads.
+    } else {
+      cf1_on_voltage_ = !cf1_on_voltage_;
+      mgos_gpio_write(sel_pin_, cf1_on_voltage_ ? 1 : 0);
+      cf1_settling_ = true;
+    }
+  }
+  LOG(LL_DEBUG,
+      ("cfcnt %d cfps %.2f, cf1cnt %d cf1ps %.2f (%s%s); apa %.2f aea %.2f "
+       "ca %.3f vo %.1f",
+       (int) cf_count, cfps, (int) cf1_count, cf1ps,
+       (cf1_on_voltage_ ? "V" : "I"), (cf1_settling_ ? " settle" : ""), apa_,
+       aea_, ca_, vo_));
   // Start new measurement cycle.
   mgos_ints_disable();
   cf_count_ = 0;

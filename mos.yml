@@ -682,6 +682,7 @@ conds:
         - ["bl0937.power_coeff", "f", 0, {title: "BL0937 counts -> watts conversion coefficient"}]
         - ["bl0937.power_coeff", 1.64358469]  # (16 + 1010 + 1935) / (9.55 + 617 + 1175)
         - ["bl0937.current_coeff", "f", 0, {title: "BL0937 CF1 pulses/sec -> amps conversion coefficient, 0 = disabled"}]
+        - ["bl0937.voltage_coeff", "f", 0, {title: "BL0937 CF1 pulses/sec -> volts conversion coefficient (needs current_coeff too), 0 = disabled"}]
         - ["led.color_on", "i", 0x00FF00, {title: "LED color when on"}]
         - ["led.color_off", "i", 0xFF0000, {title: "LED color when off"}]
 

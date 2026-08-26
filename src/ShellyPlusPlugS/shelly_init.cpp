@@ -55,7 +55,8 @@ void CreatePeripherals(std::vector<std::unique_ptr<Input>> *inputs,
   std::unique_ptr<PowerMeter> pm(
       new BL0937PowerMeter(1, 10 /* CF */, 22 /* CF1 */, 19 /* SEL */, 2,
                            mgos_sys_config_get_bl0937_power_coeff(),
-                           mgos_sys_config_get_bl0937_current_coeff()));
+                           mgos_sys_config_get_bl0937_current_coeff(),
+                           mgos_sys_config_get_bl0937_voltage_coeff()));
 #else
 
   struct bl0942_cfg cfg = {

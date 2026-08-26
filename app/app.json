@@ -8,6 +8,7 @@
     "platforms": ["ios", "android"],
     "ios": {
       "bundleIdentifier": "io.github.jppino.shellyhomekit.setup",
+      "appleTeamId": "964PLN2C58",
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "Bluetooth is used to discover nearby Shelly devices and configure their WiFi."
       }
