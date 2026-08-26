@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shelly HomeKit &mdash; self-hosted builds</title>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1c2733;
+    --muted: #5b6b7b;
+    --border: #e2e7ed;
+    --accent: #ef8538;
+    --accent-text: #ffffff;
+    --pill: #f0f3f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151b;
+      --card: #171e26;
+      --text: #e8edf2;
+      --muted: #93a3b3;
+      --border: #263140;
+      --accent: #ef8538;
+      --accent-text: #1c1208;
+      --pill: #1f2933;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 64px; }
+  header { display: flex; align-items: center; gap: 18px; margin-bottom: 28px; }
+  header img { width: 72px; height: 72px; flex: none; }
+  header h1 { margin: 0; font-size: 1.7rem; line-height: 1.2; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  header a { color: inherit; }
+  .banner {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 22px; margin-bottom: 34px;
+  }
+  .banner .ver { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .banner .meta { color: var(--muted); font-size: 0.9rem; }
+  .banner .meta a { color: inherit; }
+  .banner .spacer { flex: 1; }
+  .banner .actions { display: flex; gap: 10px; }
+  .btn {
+    display: inline-block; padding: 8px 14px; border-radius: 10px; text-decoration: none;
+    font-weight: 600; font-size: 0.9rem; border: 1px solid var(--border);
+    background: var(--pill); color: var(--text);
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .btn:hover { filter: brightness(1.05); }
+  section h2 {
+    font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 30px 0 10px;
+  }
+  ul.models { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  ul.models li {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 16px;
+  }
+  ul.models .name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.92rem; overflow-wrap: anywhere;
+  }
+  ul.models .links { display: flex; gap: 8px; flex: none; }
+  ul.models .links a {
+    text-decoration: none; font-size: 0.8rem; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px; background: var(--pill);
+    border: 1px solid var(--border); color: var(--text); white-space: nowrap;
+  }
+  ul.models .links a.latest { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  ul.models .links a:hover { filter: brightness(1.05); }
+  footer { margin-top: 44px; color: var(--muted); font-size: 0.85rem; }
+  footer a { color: inherit; }
+  footer p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="logo.svg" alt="Shelly HomeKit logo">
+    <div>
+      <h1>Shelly HomeKit</h1>
+      <p>Self-hosted firmware builds from <a href="https://github.com/jp-pino/shelly-homekit">jp-pino/shelly-homekit</a></p>
+    </div>
+  </header>
+
+  <div class="banner">
+    <div>
+      <div class="ver">__VERSION__</div>
+      <div class="meta">__COUNT__ models &middot; built __DATE__ from <a href="__COMMIT_URL__">__COMMIT__</a></div>
+    </div>
+    <span class="spacer"></span>
+    <div class="actions">
+      <a class="btn primary" href="update.json">update.json</a>
+      <a class="btn" href="https://github.com/jp-pino/shelly-homekit/commits/master">changelog</a>
+    </div>
+  </div>
+
+  __SECTIONS__
+
+  <footer>
+    <p><strong>Updating a device:</strong> firmware running these builds checks this page's
+      <a href="update.json">update.json</a> feed from its web UI. Devices on firmware older than
+      2.13 are first routed to the upstream 2.13.3 stepping-stone release.</p>
+    <p><strong>Stable links:</strong> <code>latest/shelly-homekit-&lt;Model&gt;.zip</code> always
+      points at the newest build.</p>
+    <p>A fork of the <a href="https://github.com/mongoose-os-apps/shelly-homekit">shelly-homekit</a>
+      project (Apache-2.0). Not affiliated with Allterco Robotics / Shelly.</p>
+  </footer>
+</div>
+</body>
+</html>

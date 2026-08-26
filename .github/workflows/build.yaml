@@ -139,11 +139,34 @@ jobs:
           ]
           with open("site/update.json", "w") as f:
               json.dump(update, f, indent=2)
+          import datetime
+          def gen_group(m):
+              if "Gen3" in m: return "Gen 3"
+              if m.startswith("ShellyPlus"): return "Plus (Gen 2)"
+              return "Gen 1"
+          sections = ""
+          for g in ["Gen 1", "Plus (Gen 2)", "Gen 3"]:
+              models = sorted(m for m in urls if gen_group(m) == g)
+              if not models: continue
+              sections += f'<section><h2>{g}</h2><ul class="models">'
+              for m in models:
+                  sections += (f'<li><span class="name">{m}</span><span class="links">'
+                               f'<a href="{version}/shelly-homekit-{m}.zip">{version}</a>'
+                               f'<a class="latest" href="latest/shelly-homekit-{m}.zip">latest</a>'
+                               '</span></li>')
+              sections += "</ul></section>"
+          shutil.copy("fs_src/logo.svg", "site/logo.svg")
+          commit = os.environ.get("GITHUB_SHA", "")
+          now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+          page = (open(".github/pages/index.html").read()
+                  .replace("__VERSION__", version)
+                  .replace("__COUNT__", str(len(urls)))
+                  .replace("__DATE__", now)
+                  .replace("__COMMIT_URL__", f"https://github.com/jp-pino/shelly-homekit/commit/{commit}")
+                  .replace("__COMMIT__", commit[:7] or "master")
+                  .replace("__SECTIONS__", sections))
           with open("site/index.html", "w") as f:
-              f.write(f"<html><body><h1>shelly-homekit {version}</h1><ul>")
-              for m, u in urls.items():
-                  f.write(f'<li><a href="{u}">{m}</a> (<a href="latest/shelly-homekit-{m}.zip">latest</a>)</li>')
-              f.write('</ul><p><a href="update.json">update.json</a></p></body></html>')
+              f.write(page)
           print(f"Published {len(urls)} models as version {version}")
           EOF
       - name: Upload Pages artifact
