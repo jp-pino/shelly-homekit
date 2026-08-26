@@ -1124,17 +1124,8 @@ function round1(v) {
 function updatePowerStats(c, cd) {
   if (cd.apower === undefined) return;
 
-  let stats = `${round1(cd.apower)}W`;
-  if (cd.voltage !== undefined) stats += `, ${round1(cd.voltage)}V`;
-  if (cd.current !== undefined) {
-    stats += `, ${Math.round(cd.current * 1000) / 1000}A`;
-  }
-  stats += `, ${cd.aenergy}Wh`;
-  updateInnerText(el(c, "power_stats"), stats);
-  el(c, "power_stats_container").style.display = "block";
-
   let h = powerHistory[cd.id] || (powerHistory[cd.id] = []);
-  h.push({p: cd.apower, i: cd.current, v: cd.voltage});
+  h.push({p: cd.apower, i: cd.current, v: cd.voltage, e: cd.aenergy});
   if (h.length > powerChartLen) h.shift();
   drawPowerChart(c, h);
 }
@@ -1163,26 +1154,17 @@ function drawPowerChart(c, h) {
   let line = smoothPath(h.map((s, j) => [x(j), y(s.p, pMax)]));
   let x0 = x(0).toFixed(1), x1 = x(h.length - 1).toFixed(1);
   let gid = `pcg-${c.id}`;
-  let inner = `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
+  svg.innerHTML =
+      `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">` +
       `<stop class="pc-grad-hi" offset="0"/>` +
       `<stop class="pc-grad-lo" offset="1"/></linearGradient></defs>` +
       `<line class="pc-grid" x1="0" y1="${(ht / 3).toFixed(1)}" x2="${w}" y2="${
-                  (ht / 3).toFixed(1)}"/>` +
+          (ht / 3).toFixed(1)}"/>` +
       `<line class="pc-grid" x1="0" y1="${(ht * 2 / 3).toFixed(1)}" x2="${
-                  w}" y2="${(ht * 2 / 3).toFixed(1)}"/>` +
+          w}" y2="${(ht * 2 / 3).toFixed(1)}"/>` +
       `<path class="pc-area" fill="url(#${gid})" d="${line} L${x1},${ht} L${
-                  x0},${ht} Z"/>` +
+          x0},${ht} Z"/>` +
       `<path class="pc-line" vector-effect="non-scaling-stroke" d="${line}"/>`;
-  if (h.filter((s) => s.i !== undefined).length > 1) {
-    let iMax = Math.max(0.05, ...h.map((s) => s.i || 0));
-    let iPts = [];
-    h.forEach((s, j) => {
-      if (s.i !== undefined) iPts.push([x(j), y(s.i, iMax)]);
-    });
-    inner += `<path class="pc-iline" vector-effect="non-scaling-stroke" d="${
-        smoothPath(iPts)}"/>`;
-  }
-  svg.innerHTML = inner;
   let last = h[h.length - 1];
   updateInnerText(el(c, "pc_now"), String(round1(last.p)));
   let ie = el(c, "pc_i");
@@ -1195,13 +1177,55 @@ function drawPowerChart(c, h) {
     updateInnerText(ve, `${round1(last.v)} V`);
     ve.style.display = "inline";
   }
+  if (last.e !== undefined) {
+    updateInnerText(el(c, "pc_e"), `${round1(last.e)} Wh`);
+  }
   let peak = Math.max(...h.map((s) => s.p));
   let avg = h.reduce((a, s) => a + s.p, 0) / h.length;
   updateInnerText(
       el(c, "pc_range"),
       `peak ${round1(peak)} W \u00b7 avg ${round1(avg)} W \u00b7 last ${
           h.length}s`);
+  // Stash state for hover lookups; the chart supersedes the text stats row.
+  c.pcState = {h: h, pMax: pMax};
+  if (!c.pcHooked) {
+    c.pcHooked = true;
+    initPowerChartHover(c);
+  }
+  el(c, "power_stats_container").style.display = "none";
   el(c, "power_chart_container").style.display = "block";
+}
+
+function initPowerChartHover(c) {
+  let plot = el(c, "pc_plot"), hov = el(c, "pc_hover");
+  plot.onpointermove = function(ev) {
+    let st = c.pcState;
+    if (!st) return;
+    const w = 300, ht = 72, pad = 3;
+    let r = plot.getBoundingClientRect();
+    let fx = Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+    let j =
+        Math.round(fx * (powerChartLen - 1) - (powerChartLen - st.h.length));
+    j = Math.min(st.h.length - 1, Math.max(0, j));
+    let s = st.h[j];
+    let cx = ((powerChartLen - st.h.length + j) / (powerChartLen - 1)) * 100;
+    let cy = ((ht - pad - (s.p / st.pMax) * (ht - 2 * pad)) / ht) * 100;
+    el(c, "pc_cross").style.left = `${cx}%`;
+    let dot = el(c, "pc_dot");
+    dot.style.left = `${cx}%`;
+    dot.style.top = `${cy}%`;
+    let tip = el(c, "pc_tip");
+    let age = st.h.length - 1 - j;
+    let txt = `${round1(s.p)} W`;
+    if (s.i !== undefined) txt += ` \u00b7 ${Math.round(s.i * 1000) / 1000} A`;
+    txt += age ? ` \u00b7 -${age}s` : " \u00b7 now";
+    updateInnerText(tip, txt);
+    tip.style.left = `${Math.min(84, Math.max(16, cx))}%`;
+    hov.style.display = "block";
+  };
+  plot.onpointerleave = function() {
+    hov.style.display = "none";
+  };
 }
 
 function getInfo() {

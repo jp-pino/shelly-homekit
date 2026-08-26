@@ -451,14 +451,23 @@
           <span id="power_stats"></span>
         </div>
         <div class="power-chart" id="power_chart_container" style="display: none;">
+          <div class="pc-eyebrow">Power</div>
           <div class="pc-head">
             <span class="pc-now"><b id="pc_now">0</b><span class="pc-unit"> W</span></span>
             <span class="pc-chips">
-              <span class="pc-chip pc-chip-i" id="pc_i" style="display: none"></span>
-              <span class="pc-chip pc-chip-v" id="pc_v" style="display: none"></span>
+              <span class="pc-chip" id="pc_i" style="display: none"></span>
+              <span class="pc-chip" id="pc_v" style="display: none"></span>
+              <span class="pc-chip" id="pc_e"></span>
             </span>
           </div>
-          <svg id="power_chart" viewBox="0 0 300 72" preserveAspectRatio="none"></svg>
+          <div class="pc-plot" id="pc_plot">
+            <svg id="power_chart" viewBox="0 0 300 72" preserveAspectRatio="none"></svg>
+            <div class="pc-hover" id="pc_hover" style="display: none">
+              <div class="pc-cross" id="pc_cross"></div>
+              <div class="pc-dot" id="pc_dot"></div>
+              <div class="pc-tip" id="pc_tip"></div>
+            </div>
+          </div>
           <div class="pc-foot" id="pc_range"></div>
         </div>
         <div>
