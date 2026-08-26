@@ -399,18 +399,25 @@ function DeviceScreen({device, theme: t, onBack}: {
             </>
           ) : (
             <View style={{alignItems: "center"}}>
-              <QrCode value={hap.url} size={220} />
               <Text style={[styles.hapCode, {color: t.ink}]}>{hap.code}</Text>
               <Text style={[styles.hint, styles.center, {color: t.muted}]}>
-                Scan in the Home app, or tap below to add it now.
+                In the <Text style={{fontWeight: "600"}}>Home</Text> app: tap +,
+                Add Accessory, then “More options…” and enter this code.
+              </Text>
+              <View style={{height: 14}} />
+              <QrCode value={hap.url} size={200} />
+              <Text style={[styles.hint, styles.center, {color: t.muted}]}>
+                Or scan this code with another device.
               </Text>
               <View style={{alignSelf: "stretch"}}>
                 <Button
-                  title="Add to Apple Home"
+                  title="Open Home App"
                   onPress={() => Linking.openURL(hap.url).catch(
-                      () => Alert.alert(
-                          "Could not open Home",
-                          "Enter this code in the Home app: " + hap.code))}
+                      () => Linking.openURL("com.apple.home://").catch(
+                          () => Alert.alert(
+                              "Add it in the Home app",
+                              "Open Home → + → Add Accessory → “More " +
+                                  "options…”, then enter code " + hap.code)))}
                 />
               </View>
             </View>
