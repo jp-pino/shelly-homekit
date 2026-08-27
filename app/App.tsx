@@ -28,6 +28,7 @@ import {BleManager, Device} from "react-native-ble-plx";
 import {MosRpcClient, RPC_SVC} from "./src/MosRpc";
 import {setupHomeKit, HapSetup} from "./src/HomeKit";
 import {QrCode} from "./src/QrCode";
+import {checkUpdate, installUpdate, UpdateAvail} from "./src/Updates";
 import {
   StockInfo,
   ConvertStep,
@@ -440,6 +441,9 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [hapBusy, setHapBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [lightWhenOff, setLightWhenOff] = useState<boolean | null>(null);
+  const [update, setUpdate] =
+      useState<"checking" | "current" | UpdateAvail | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
@@ -484,6 +488,18 @@ function DeviceScreen({device, theme: t, onBack}: {
               setLightWhenOff(led.color_off !== 0);
             }
           } catch {}
+          // On-demand firmware check against the feed (device does this only
+          // once a day on its own). Needs the device's IP, which comes from
+          // the info we just read over BLE.
+          if (i?.model && i?.version && i?.wifi_conn_ip) {
+            setUpdate("checking");
+            try {
+              const u = await checkUpdate(i.model, i.version);
+              if (!cancelled) setUpdate(u ?? "current");
+            } catch {
+              if (!cancelled) setUpdate(null);
+            }
+          }
         }
       } catch (e: any) {
         if (!cancelled) setStatus(`Connection failed: ${e.message}`);
@@ -583,6 +599,21 @@ function DeviceScreen({device, theme: t, onBack}: {
     }
   }, [info, lightWhenOff]);
 
+  const doUpdate = useCallback(async () => {
+    if (!info?.wifi_conn_ip || !update || typeof update === "string") return;
+    setUpdating("Starting update…");
+    try {
+      const ok = await installUpdate(
+          info.wifi_conn_ip, update, (m) => setUpdating(m));
+      setUpdating(
+          ok ? `Updated to ${update.latest}.` :
+               "Update didn't confirm — check the device's web interface.");
+      if (ok) setUpdate("current");
+    } catch (e: any) {
+      setUpdating(`Update failed: ${e.message}`);
+    }
+  }, [info, update]);
+
   const webUrl = info?.wifi_conn_ip ?
       `http://${info.wifi_conn_ip}/` :
       `http://${(info?.device_id ?? device.name ?? "").toLowerCase()}.local/`;
@@ -625,6 +656,43 @@ function DeviceScreen({device, theme: t, onBack}: {
         )}
         {status && <Text style={[styles.hint, {color: t.muted}]}>{status}</Text>}
       </View>
+
+      {update !== null && (
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <Text style={[styles.h1, {color: t.ink, marginBottom: 2}]}>
+            Firmware
+          </Text>
+          {updating ? (
+            <View style={styles.row}>
+              {!/Updated|failed|confirm/.test(updating) &&
+                  <ActivityIndicator size="small" color={ACCENT} />}
+              <Text style={[styles.hint, {color: t.ink, marginLeft: 8, flex: 1}]}>
+                {updating}
+              </Text>
+            </View>
+          ) : update === "checking" ? (
+            <View style={styles.row}>
+              <ActivityIndicator size="small" color={ACCENT} />
+              <Text style={[styles.hint, {color: t.muted, marginLeft: 8}]}>
+                Checking for updates…
+              </Text>
+            </View>
+          ) : update === "current" ? (
+            <Text style={[styles.hint, {color: t.muted}]}>
+              {info?.version} · up to date
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.hint, {color: t.ink}]}>
+                {info?.version} → <Text style={{fontWeight: "600"}}>
+                  {update.latest}
+                </Text> available
+              </Text>
+              <Button title="Update now" onPress={doUpdate} />
+            </>
+          )}
+        </View>
+      )}
 
       {(phase === "form" || phase === "saving") && (
         <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>

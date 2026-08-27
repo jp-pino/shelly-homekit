@@ -50,10 +50,17 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build
-        run: | 
+        run: |
           cd /home/runner/work/shelly-homekit/shelly-homekit
           git config --global --add safe.directory /home/runner/work/shelly-homekit/shelly-homekit
-          make ${{ matrix.model }} LOCAL=1 RELEASE=1 RELEASE_SUFFIX=$(.github/version.py --suffix)
+          # Bake the git-derived suffix into the firmware version so a device
+          # reports e.g. 2.16.1-latest27 (not just 2.16.1); this lets the app's
+          # update check compare the running build against the feed. The suffix
+          # is folded into version:, so RELEASE_SUFFIX is left empty.
+          BASE=$(sed -n 's/^version: *//p' mos.yml | head -1)
+          SUFFIX=$(.github/version.py --suffix)
+          sed -i "s/^version: .*/version: ${BASE}${SUFFIX}/" mos.yml
+          make ${{ matrix.model }} LOCAL=1 RELEASE=1
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v7
         with:
