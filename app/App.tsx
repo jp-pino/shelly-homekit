@@ -517,6 +517,26 @@ function DeviceScreen({device, theme: t, onBack}: {
   const startHomeKit = useCallback(async () => {
     const c = clientRef.current;
     if (!c || !info) return;
+    // Re-running HAP.Setup regenerates the accessory keys and unpairs it from
+    // the Home app, so guard when the device is already paired.
+    if (info.hap_paired) {
+      const ok = await new Promise<boolean>((resolve) => {
+        Alert.alert(
+            "Already added to HomeKit",
+            "This device is already paired in the Home app. Setting it up " +
+                "again will unpair it — you'd have to remove it in Home and " +
+                "re-add it with the new code. Continue?",
+            [
+              {text: "Cancel", style: "cancel", onPress: () => resolve(false)},
+              {
+                text: "Set up again",
+                style: "destructive",
+                onPress: () => resolve(true),
+              },
+            ]);
+      });
+      if (!ok) return;
+    }
     setHapBusy(true);
     setStatus(null);
     try {
@@ -626,11 +646,17 @@ function DeviceScreen({device, theme: t, onBack}: {
           {!hap ? (
             <>
               <Text style={[styles.hint, {color: t.muted}]}>
-                Generate a pairing code and add this device to Apple Home.
-                The device must be on your WiFi to finish pairing.
+                {info.hap_paired ?
+                    "Already added to the Home app. Only set up again if you " +
+                        "need a new code — it will unpair the current one." :
+                    "Generate a pairing code and add this device to Apple " +
+                        "Home. The device must be on your WiFi to finish " +
+                        "pairing."}
               </Text>
               <Button
-                title={hapBusy ? "Preparing…" : "Set up HomeKit"}
+                title={hapBusy ? "Preparing…" :
+                    info.hap_paired ? "Set up again" : "Set up HomeKit"}
+                secondary={!!info.hap_paired}
                 disabled={hapBusy}
                 onPress={startHomeKit}
               />
