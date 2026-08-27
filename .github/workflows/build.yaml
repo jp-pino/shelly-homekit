@@ -1,6 +1,10 @@
 name: build-shelly-homekit
 on:
   push:
+    # The companion app doesn't ship in the firmware zips; skip the build (and
+    # the feed version bump it causes) when only the app changed.
+    paths-ignore:
+      - "app/**"
   pull_request:
   workflow_dispatch:
 jobs:
