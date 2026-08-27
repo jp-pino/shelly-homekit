@@ -581,23 +581,18 @@ function DeviceScreen({device, theme: t, onBack}: {
     const prev = lightWhenOff;
     setLightWhenOff(on);
     try {
-      // The ring shows led.color_off while the relay is off; 0 = dark.
+      // The ring shows led.color_off while the relay is off; 0 = dark. The new
+      // colour is applied by a restart (which keeps the relay in its last
+      // state), NOT by touching the switch — so the load is never toggled.
       await c.call(
           "Config.Set", {config: {led: {color_off: on ? 0xff0000 : 0}}});
-      await c.call("Config.Save", {});
-      // Re-apply the LED with the new colour without switching the load:
-      // SetState to the current output state re-renders the ring.
-      const comps = (info?.components || []) as any[];
-      const sw = comps.find((x) => x.type === 0 || x.type === 1);
-      if (sw) {
-        await c.call("Shelly.SetState",
-                     {id: sw.id, type: sw.type, state: {state: !!sw.state}});
-      }
+      await c.call("Config.Save", {reboot: true});
+      setStatus("Saved — the plug restarts briefly to apply it.");
     } catch (e: any) {
       setLightWhenOff(prev);
       setStatus(`Couldn't change the status light: ${e.message}`);
     }
-  }, [info, lightWhenOff]);
+  }, [lightWhenOff]);
 
   const doUpdate = useCallback(async () => {
     if (!info?.wifi_conn_ip || !update || typeof update === "string") return;

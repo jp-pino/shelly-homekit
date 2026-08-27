@@ -53,13 +53,15 @@ jobs:
         run: |
           cd /home/runner/work/shelly-homekit/shelly-homekit
           git config --global --add safe.directory /home/runner/work/shelly-homekit/shelly-homekit
-          # Bake the git-derived suffix into the firmware version so a device
-          # reports e.g. 2.16.1-latest27 (not just 2.16.1); this lets the app's
-          # update check compare the running build against the feed. The suffix
-          # is folded into version:, so RELEASE_SUFFIX is left empty.
+          # Auto-increment the patch by the number of commits since the release
+          # tag (e.g. 2.16.1 -> 2.16.28), no -latest suffix, so a device reports
+          # a plain incrementing version the app's update check can compare.
           BASE=$(sed -n 's/^version: *//p' mos.yml | head -1)
-          SUFFIX=$(.github/version.py --suffix)
-          sed -i "s/^version: .*/version: ${BASE}${SUFFIX}/" mos.yml
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "$BASE")
+          N=$(git rev-list "${TAG}..HEAD" --count 2>/dev/null || echo 0)
+          VER="${BASE%.*}.$(( ${BASE##*.} + N ))"
+          echo "Building version ${VER}"
+          sed -i "s/^version: .*/version: ${VER}/" mos.yml
           make ${{ matrix.model }} LOCAL=1 RELEASE=1
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v7
@@ -104,7 +106,10 @@ jobs:
           path: zips
       - name: Assemble site
         run: |
-          VERSION="$(sed -n 's/^version: *//p' mos.yml)$(.github/version.py --suffix 2>/dev/null || true)"
+          BASE=$(sed -n 's/^version: *//p' mos.yml | head -1)
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "$BASE")
+          N=$(git rev-list "${TAG}..HEAD" --count 2>/dev/null || echo 0)
+          VERSION="${BASE%.*}.$(( ${BASE##*.} + N ))"
           echo "Version: ${VERSION}"
           export VERSION
           python3 - <<'EOF'
