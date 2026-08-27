@@ -17,6 +17,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   useColorScheme,
@@ -438,6 +439,7 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [hap, setHap] = useState<HapSetup | null>(null);
   const [hapBusy, setHapBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lightWhenOff, setLightWhenOff] = useState<boolean | null>(null);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
@@ -474,6 +476,14 @@ function DeviceScreen({device, theme: t, onBack}: {
             if (phoneSsid && !cancelled) s = phoneSsid;
           }
           if (!cancelled) setSsid(s);
+          // Whether the status ring lights up while the plug is off
+          // (led.color_off != 0). Only present on LED-ring devices.
+          try {
+            const led = await c.call("Config.Get", {key: "led"});
+            if (!cancelled && led && led.color_off !== undefined) {
+              setLightWhenOff(led.color_off !== 0);
+            }
+          } catch {}
         }
       } catch (e: any) {
         if (!cancelled) setStatus(`Connection failed: ${e.message}`);
@@ -548,6 +558,30 @@ function DeviceScreen({device, theme: t, onBack}: {
       setHapBusy(false);
     }
   }, [info]);
+
+  const setStatusLight = useCallback(async (on: boolean) => {
+    const c = clientRef.current;
+    if (!c) return;
+    const prev = lightWhenOff;
+    setLightWhenOff(on);
+    try {
+      // The ring shows led.color_off while the relay is off; 0 = dark.
+      await c.call(
+          "Config.Set", {config: {led: {color_off: on ? 0xff0000 : 0}}});
+      await c.call("Config.Save", {});
+      // Re-apply the LED with the new colour without switching the load:
+      // SetState to the current output state re-renders the ring.
+      const comps = (info?.components || []) as any[];
+      const sw = comps.find((x) => x.type === 0 || x.type === 1);
+      if (sw) {
+        await c.call("Shelly.SetState",
+                     {id: sw.id, type: sw.type, state: {state: !!sw.state}});
+      }
+    } catch (e: any) {
+      setLightWhenOff(prev);
+      setStatus(`Couldn't change the status light: ${e.message}`);
+    }
+  }, [info, lightWhenOff]);
 
   const webUrl = info?.wifi_conn_ip ?
       `http://${info.wifi_conn_ip}/` :
@@ -698,6 +732,28 @@ function DeviceScreen({device, theme: t, onBack}: {
               </View>
             </View>
           )}
+        </View>
+      )}
+
+      {lightWhenOff !== null && (
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <View style={styles.row}>
+            <View style={styles.fill}>
+              <Text style={[styles.h1, {color: t.ink, marginBottom: 2}]}>
+                Status light when off
+              </Text>
+              <Text style={[styles.hint, {color: t.muted}]}>
+                The ring glows red while the plug is off. Turn this off for a
+                dark plug at night — it still lights up when on.
+              </Text>
+            </View>
+            <Switch
+              value={lightWhenOff}
+              onValueChange={setStatusLight}
+              trackColor={{true: ACCENT}}
+              style={{marginLeft: 12}}
+            />
+          </View>
         </View>
       )}
 
