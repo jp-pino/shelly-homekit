@@ -110,13 +110,12 @@ export default function App() {
   return (
     <View style={[styles.root, {backgroundColor: t.page}]}>
       <StatusBar style={dark ? "light" : "dark"} />
-      <Image
-        source={require("./assets/icon.png")}
-        style={styles.logo}
-      />
-      <Text style={[styles.wordmark, {color: t.ink}]}>
-        Shelly-<Text style={styles.wordmarkBold}>HomeKit</Text>
-      </Text>
+      <View style={styles.header}>
+        <Image source={require("./assets/icon.png")} style={styles.logo} />
+        <Text style={[styles.wordmark, {color: t.ink}]}>
+          Shelly-<Text style={styles.wordmarkBold}>HomeKit</Text>
+        </Text>
+      </View>
       {screen.kind === "scan" ? (
         <ScanScreen
           manager={manager}
@@ -736,8 +735,9 @@ const darkTheme: Theme = {
 const styles = StyleSheet.create({
   root: {flex: 1, paddingTop: 64, paddingHorizontal: 14},
   fill: {flex: 1},
-  logo: {width: 58, height: 58, borderRadius: 13, alignSelf: "center", marginBottom: 8},
-  wordmark: {fontSize: 26, fontWeight: "300", textAlign: "center", letterSpacing: -0.5, marginBottom: 14},
+  header: {flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 14},
+  logo: {width: 40, height: 40, borderRadius: 9, marginRight: 10},
+  wordmark: {fontSize: 26, fontWeight: "300", letterSpacing: -0.5},
   wordmarkBold: {fontWeight: "700"},
   card: {borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12},
   row: {flexDirection: "row", alignItems: "center"},
