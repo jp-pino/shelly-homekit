@@ -450,13 +450,28 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [power, setPower] =
       useState<{watts: number; energy: number; on: boolean} | null>(null);
   const [powerHist, setPowerHist] = useState<number[]>([]);
+  // Bumped to re-run the connect effect after a device reboot (config save,
+  // firmware update) drops the BLE link.
+  const [connectNonce, setConnectNonce] = useState(0);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const c = await MosRpcClient.connect(device);
+        // The device may be mid-reboot (reconnecting after a config save or
+        // update), so retry for a while before giving up.
+        let c: MosRpcClient | undefined;
+        for (let att = 0; !c; att++) {
+          try {
+            c = await MosRpcClient.connect(device);
+          } catch (e) {
+            if (cancelled) return;
+            if (att >= 7) throw e;
+            await new Promise((r) => setTimeout(r, 3000));
+            if (cancelled) return;
+          }
+        }
         if (cancelled) {
           void c.close();
           return;
@@ -478,14 +493,16 @@ function DeviceScreen({device, theme: t, onBack}: {
         if (!cancelled) {
           setInfo(i);
           setPhase("form");
+          setStatus(null);
           // Pre-fill: prefer the network the device already knows, otherwise
-          // offer the phone's current WiFi (if iOS will surface it).
+          // offer the phone's current WiFi (if iOS will surface it). Never
+          // clobber something the user already typed (reconnects re-run this).
           let s = i?.wifi_ssid ?? "";
           if (!s) {
             const phoneSsid = await currentWifiSsid();
             if (phoneSsid && !cancelled) s = phoneSsid;
           }
-          if (!cancelled) setSsid(s);
+          if (!cancelled) setSsid((cur) => cur || s);
           // Whether the status ring lights up while the plug is off
           // (led.color_off != 0). Only present on LED-ring devices.
           try {
@@ -536,7 +553,7 @@ function DeviceScreen({device, theme: t, onBack}: {
       cancelled = true;
       void clientRef.current?.close();
     };
-  }, [device]);
+  }, [device, connectNonce]);
 
   // Live power draw for metered devices: poll GetInfoExt every few seconds,
   // over HTTP when the device is on WiFi (fast), else over the BLE link.
@@ -657,6 +674,13 @@ function DeviceScreen({device, theme: t, onBack}: {
           "Config.Set", {config: {led: {color_off: on ? 0xff0000 : 0}}});
       await c.call("Config.Save", {reboot: true});
       setStatus("Saved — the plug restarts briefly to apply it.");
+      // The restart drops the BLE link; reconnect so further changes work
+      // without going back to the scan screen.
+      void clientRef.current?.close();
+      clientRef.current = null;
+      setClient(null);
+      await new Promise((r) => setTimeout(r, 4000));
+      setConnectNonce((n) => n + 1);
     } catch (e: any) {
       setLightWhenOff(prev);
       setStatus(`Couldn't change the status light: ${e.message}`);
@@ -672,7 +696,15 @@ function DeviceScreen({device, theme: t, onBack}: {
       setUpdating(
           ok ? `Updated to ${update.latest}.` :
                "Update didn't confirm — check the device's web interface.");
-      if (ok) setUpdate("current");
+      if (ok) {
+        setUpdate("current");
+        // The device rebooted into the new build, killing the BLE link;
+        // reconnect so BLE actions keep working.
+        void clientRef.current?.close();
+        clientRef.current = null;
+        setClient(null);
+        setConnectNonce((n) => n + 1);
+      }
     } catch (e: any) {
       setUpdating(`Update failed: ${e.message}`);
     }
@@ -918,6 +950,7 @@ function DeviceScreen({device, theme: t, onBack}: {
             <Switch
               value={lightWhenOff}
               onValueChange={setStatusLight}
+              disabled={!client}
               trackColor={{true: ACCENT}}
               style={{marginLeft: 12}}
             />
