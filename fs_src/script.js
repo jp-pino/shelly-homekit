@@ -513,6 +513,35 @@ function gdoSetConfig(c, cfg, spinner) {
   setComponentConfig(c, cfg, spinner);
 }
 
+// Bluetooth (BLE) control. Only shown on devices that have a bt config
+// section (ESP32-family builds with rpc-gatts); Gen1 devices have no radio.
+function initBtToggle() {
+  callDevice("Config.Get", {key: "bt"})
+      .then(function(cfg) {
+        let bt = (cfg && cfg.enable !== undefined) ? cfg : (cfg && cfg.bt);
+        if (!bt || bt.enable === undefined) return;
+        el("bt_container").style.display = "block";
+        el("bt_keep_en").checked = !!(bt.enable && bt.keep_enabled);
+      })
+      .catch(function() {});
+}
+
+el("bt_keep_en").onchange = function() {
+  let on = el("bt_keep_en").checked;
+  el("bt_hint").innerText = "saving…";
+  callDevice("Config.Set", {config: {bt: {enable: true, keep_enabled: on}}})
+      .then(function() {
+        return callDevice("Config.Save", {reboot: false});
+      })
+      .then(function() {
+        el("bt_hint").innerText = "saved — reboot to apply";
+      })
+      .catch(function(e) {
+        el("bt_hint").innerText = "";
+        alert("Failed to change Bluetooth: " + e);
+      });
+};
+
 el("reboot_btn").onclick = function() {
   if (!confirm("Reboot the device?")) return;
 
@@ -1272,6 +1301,7 @@ function getInfo() {
               (info.auth_en ? "block" : "none");
           el("firmware_container").style.display = "block";
           updateCommonVisibility(!updateInProgress);
+          if (el("bt_container").style.display === "none") initBtToggle();
 
           // the system mode changed, clear out old UI components
           if (lastInfo !== null && lastInfo.sys_mode !== info.sys_mode) {

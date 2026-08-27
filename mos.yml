@@ -239,9 +239,9 @@ conds:
 
   # BLE provisioning for the companion app: devices advertise their device.id
   # over BLE and accept RPCs (Shelly.GetInfo, Shelly.SetWifiConfig, ...) via
-  # the rpc-gatts GATT service. With bt.keep_enabled=false BLE is only active
-  # until WiFi STA is configured, so it is purely a setup channel; set it to
-  # true (Config.Set) to keep devices BLE-discoverable permanently.
+  # the rpc-gatts GATT service. bt.keep_enabled defaults to true so devices
+  # stay BLE-discoverable/manageable from the app even after WiFi is set; turn
+  # it off per device from the web UI (System Settings) to make BLE setup-only.
   - when: mos.platform == "esp32"
     apply:
       libs:
@@ -250,7 +250,7 @@ conds:
       config_schema:
         - ["bt.enable", true]
         - ["bt.adv_enable", true]
-        - ["bt.keep_enabled", false]
+        - ["bt.keep_enabled", true]
 
   - when: mos.platform == "esp32c3"
     apply:
@@ -260,7 +260,7 @@ conds:
       config_schema:
         - ["bt.enable", true]
         - ["bt.adv_enable", true]
-        - ["bt.keep_enabled", false]
+        - ["bt.keep_enabled", true]
 
   - when: build_vars.MODEL == "Shelly1"
     apply:
