@@ -156,6 +156,11 @@ export class MosRpcClient {
       return "Bluetooth disconnected while " + during +
           " — move closer to the device and try again.";
     }
+    if (/handle is invalid|invalid handle|attribute not found/i.test(msg)) {
+      return "iOS has a stale Bluetooth cache for this device (it looked " +
+          "different before it was converted). Turn iPhone Bluetooth off and " +
+          "on in Settings, then try again.";
+    }
     return `Failed while ${during}: ${msg}`;
   }
 
