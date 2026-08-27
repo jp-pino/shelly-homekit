@@ -447,6 +447,9 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [updating, setUpdating] = useState<string | null>(null);
   const [ssids, setSsids] = useState<string[] | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [power, setPower] =
+      useState<{watts: number; energy: number; on: boolean} | null>(null);
+  const [powerHist, setPowerHist] = useState<number[]>([]);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
@@ -534,6 +537,48 @@ function DeviceScreen({device, theme: t, onBack}: {
       void clientRef.current?.close();
     };
   }, [device]);
+
+  // Live power draw for metered devices: poll GetInfoExt every few seconds,
+  // over HTTP when the device is on WiFi (fast), else over the BLE link.
+  const updateBusy = !!updating && !/Updated|failed|confirm/.test(updating);
+  useEffect(() => {
+    if (!info || updateBusy) return;
+    let stop = false;
+    const tick = async () => {
+      if (stop) return;
+      try {
+        let i: any = null;
+        if (info.wifi_conn_ip) {
+          const ctrl = new AbortController();
+          const tm = setTimeout(() => ctrl.abort(), 2500);
+          i = await fetch(`http://${info.wifi_conn_ip}/rpc/Shelly.GetInfoExt`,
+                          {signal: ctrl.signal} as any)
+                  .then((r) => r.json())
+                  .finally(() => clearTimeout(tm));
+        } else if (clientRef.current && phase !== "saving") {
+          i = await clientRef.current.call("Shelly.GetInfoExt", undefined, 8000);
+        }
+        const comps = (i?.components || [])
+                          .filter((c: any) => typeof c.apower === "number");
+        if (!stop && comps.length > 0) {
+          const watts = comps.reduce((s: number, c: any) => s + c.apower, 0);
+          setPower({
+            watts,
+            energy: comps.reduce(
+                (s: number, c: any) => s + (c.aenergy || 0), 0),
+            on: comps.some((c: any) => !!c.state),
+          });
+          setPowerHist((h) => [...h.slice(-59), watts]);
+        }
+      } catch {}
+    };
+    void tick();
+    const iv = setInterval(tick, 3000);
+    return () => {
+      stop = true;
+      clearInterval(iv);
+    };
+  }, [info, phase, updateBusy]);
 
   const save = useCallback(async () => {
     const c = clientRef.current;
@@ -675,6 +720,30 @@ function DeviceScreen({device, theme: t, onBack}: {
         )}
         {status && <Text style={[styles.hint, {color: t.muted}]}>{status}</Text>}
       </View>
+
+      {power && (
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <View style={styles.row}>
+            <Text style={[styles.h1, {color: t.ink, flex: 1}]}>Power</Text>
+            <View style={[styles.wifiDot, {
+              backgroundColor: power.on ? t.online : t.muted,
+            }]} />
+            <Text style={[styles.hint, {color: t.muted}]}>
+              {power.on ? "on" : "off"}
+            </Text>
+          </View>
+          <Text style={[styles.powerNow, {color: t.ink}]}>
+            {power.watts < 10 ? power.watts.toFixed(1) : Math.round(power.watts)}
+            <Text style={[styles.powerUnit, {color: t.muted}]}> W</Text>
+          </Text>
+          <Sparkline data={powerHist} color={ACCENT} />
+          <Text style={[styles.hint, {color: t.muted, marginTop: 6}]}>
+            {power.energy >= 1000 ?
+                `${(power.energy / 1000).toFixed(2)} kWh` :
+                `${power.energy.toFixed(1)} Wh`} since last restart
+          </Text>
+        </View>
+      )}
 
       {update !== null && (
         <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
@@ -901,6 +970,30 @@ function DeviceScreen({device, theme: t, onBack}: {
   );
 }
 
+// Last ~3 minutes of power samples as a bar sparkline (pure Views, newest on
+// the right; the slot count is fixed so early samples don't stretch).
+function Sparkline({data, color}: {data: number[]; color: string}) {
+  const SLOTS = 60, H = 40;
+  const slots = [...Array(Math.max(0, SLOTS - data.length)).fill(-1),
+                 ...data.slice(-SLOTS)];
+  const max = Math.max(1, ...data);
+  return (
+    <View style={{flexDirection: "row", alignItems: "flex-end", height: H,
+                  marginTop: 8}}>
+      {slots.map((v, i) => (
+        <View key={i} style={{
+          flex: 1,
+          marginRight: 1,
+          borderRadius: 1,
+          height: v < 0 ? 2 : Math.max(2, (v / max) * H),
+          backgroundColor: color,
+          opacity: v < 0 ? 0.12 : 0.45 + 0.55 * (i / SLOTS),
+        }} />
+      ))}
+    </View>
+  );
+}
+
 function Button({title, onPress, disabled, secondary}: {
   title: string;
   onPress: () => void;
@@ -971,6 +1064,8 @@ const styles = StyleSheet.create({
   wifiDot: {width: 8, height: 8, borderRadius: 4, marginRight: 7},
   modalBackdrop: {flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24},
   modalSheet: {borderRadius: 16, borderWidth: 1, padding: 18},
+  powerNow: {fontSize: 34, fontWeight: "700", marginTop: 4, fontVariant: ["tabular-nums"]},
+  powerUnit: {fontSize: 18, fontWeight: "500"},
   input: {borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginVertical: 6, fontSize: 15},
   button: {backgroundColor: ACCENT, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10, marginBottom: 8},
   buttonSecondary: {backgroundColor: "transparent"},

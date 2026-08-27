@@ -2,10 +2,10 @@
  * On-demand firmware update check for a converted shelly-homekit device.
  *
  * The device's web UI only checks the update feed once a day; this does it now.
- * We read the device's IP and version over its BLE RPC, compare against the
- * fork's update.json, and if newer, tell the device to pull the build via its
- * /ota?url= endpoint over the local network (esp32 builds have mbedTLS, so the
- * HTTPS feed URL is fine).
+ * We read the device's IP and version over its BLE RPC and compare against the
+ * fork's update.json. The device has no URL-pull OTA (its /ota?url= page is
+ * handled by the web UI's own JavaScript), so we do what the browser does:
+ * download the zip here, then multipart-POST it to the device's /update.
  */
 const FEED = "https://jp-pino.github.io/shelly-homekit/update.json";
 
@@ -60,14 +60,31 @@ export async function checkUpdate(
   return null;
 }
 
-// Tell the device to fetch and install the build. The device reboots on
-// success, so the BLE link drops; we then poll its HTTP RPC until the new
-// version answers.
+// Download the build here and upload it to the device (the same multipart
+// POST to /update the web UI performs). The device flashes and reboots, so
+// the BLE link drops; we then poll its HTTP RPC until the new version answers.
 export async function installUpdate(
     ip: string, u: UpdateAvail, onTick?: (msg: string) => void):
     Promise<boolean> {
-  const r = await fetch(`http://${ip}/ota?url=${encodeURIComponent(u.url)}`);
-  if (!r.ok) throw new Error(`OTA request failed (HTTP ${r.status}).`);
+  const FileSystem = require("expo-file-system");
+  onTick?.("Downloading firmware…");
+  const zip = FileSystem.cacheDirectory + "fw.zip";
+  const dl = await FileSystem.downloadAsync(u.url, zip);
+  if (dl.status !== 200) {
+    throw new Error(`Firmware download failed (HTTP ${dl.status}).`);
+  }
+  onTick?.("Uploading to device…");
+  const up = await FileSystem.uploadAsync(`http://${ip}/update`, zip, {
+    httpMethod: "POST",
+    uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+    fieldName: "file",
+    mimeType: "application/zip",
+  });
+  FileSystem.deleteAsync(zip, {idempotent: true}).catch(() => {});
+  if (up.status !== 200) {
+    throw new Error(
+        `Upload failed (HTTP ${up.status}): ${(up.body || "").slice(0, 120)}`);
+  }
   onTick?.("Flashing and rebooting…");
   const deadline = Date.now() + 240000;
   while (Date.now() < deadline) {

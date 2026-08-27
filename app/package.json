@@ -15,6 +15,7 @@
     "expo": "~52.0.0",
     "expo-asset": "~11.0.5",
     "expo-clipboard": "~7.0.1",
+    "expo-file-system": "~18.0.12",
     "expo-location": "~18.0.10",
     "expo-status-bar": "~2.0.0",
     "js-sha256": "^1.0.0",
