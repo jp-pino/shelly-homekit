@@ -12,6 +12,7 @@ import {
   FlatList,
   Image,
   Linking,
+  Modal,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -444,6 +445,8 @@ function DeviceScreen({device, theme: t, onBack}: {
   const [update, setUpdate] =
       useState<"checking" | "current" | UpdateAvail | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [ssids, setSsids] = useState<string[] | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const clientRef = useRef<MosRpcClient | null>(null);
 
   useEffect(() => {
@@ -499,6 +502,27 @@ function DeviceScreen({device, theme: t, onBack}: {
             } catch {
               if (!cancelled) setUpdate(null);
             }
+          }
+          // Feature-detect WiFi scanning: newer firmware answers Wifi.Scan;
+          // older builds 404, in which case the SSID stays a plain text field.
+          try {
+            const scan = await c.call("Wifi.Scan", undefined, 20000);
+            const results: any[] = scan?.results || (Array.isArray(scan) ? scan : []);
+            const byBest = new Map<string, number>();
+            for (const r of results) {
+              const name = r?.ssid;
+              if (!name) continue;
+              const rssi = typeof r.rssi === "number" ? r.rssi : -999;
+              if (!byBest.has(name) || rssi > (byBest.get(name) as number)) {
+                byBest.set(name, rssi);
+              }
+            }
+            const names = [...byBest.entries()]
+                              .sort((a, b) => b[1] - a[1])
+                              .map(([n]) => n);
+            if (!cancelled) setSsids(names);
+          } catch {
+            if (!cancelled) setSsids(null); // no scan support → manual only
           }
         }
       } catch (e: any) {
@@ -692,9 +716,21 @@ function DeviceScreen({device, theme: t, onBack}: {
       {(phase === "form" || phase === "saving") && (
         <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
           <Text style={[styles.h1, {color: t.ink}]}>WiFi Setup</Text>
+          {ssids && ssids.length > 0 && (
+            <Pressable
+              onPress={() => setPickerOpen(true)}
+              style={[styles.input, styles.row, {borderColor: t.border, backgroundColor: t.inputBg}]}>
+              <Text style={{color: ssid ? t.ink : t.muted, flex: 1}}>
+                {ssid || "Choose a nearby network"}
+              </Text>
+              <Text style={{color: t.muted}}>▾</Text>
+            </Pressable>
+          )}
           <TextInput
             style={[styles.input, {color: t.ink, borderColor: t.border, backgroundColor: t.inputBg}]}
-            placeholder="Network name (SSID)"
+            placeholder={ssids && ssids.length > 0 ?
+                "…or type a network name (hidden SSID)" :
+                "Network name (SSID)"}
             placeholderTextColor={t.muted}
             autoCapitalize="none"
             value={ssid}
@@ -821,6 +857,46 @@ function DeviceScreen({device, theme: t, onBack}: {
       )}
 
       <Button title="Back to scan" secondary onPress={onBack} />
+
+      <Modal
+        visible={pickerOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickerOpen(false)}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setPickerOpen(false)}>
+          <Pressable
+            style={[styles.modalSheet, {backgroundColor: t.card, borderColor: t.border}]}>
+            <Text style={[styles.h1, {color: t.ink, marginBottom: 8}]}>
+              Nearby networks
+            </Text>
+            <ScrollView style={{maxHeight: 320}}>
+              {(ssids || []).map((name) => (
+                <Pressable
+                  key={name}
+                  onPress={() => {
+                    setSsid(name);
+                    setPickerOpen(false);
+                  }}
+                  style={({pressed}) => [
+                    styles.row,
+                    {paddingVertical: 12, opacity: pressed ? 0.6 : 1},
+                  ]}>
+                  <Text style={{color: t.ink, flex: 1}}>{name}</Text>
+                  {name === ssid &&
+                      <Text style={{color: ACCENT}}>✓</Text>}
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Button
+              title="Cancel"
+              secondary
+              onPress={() => setPickerOpen(false)}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -893,6 +969,8 @@ const styles = StyleSheet.create({
   deviceName: {fontSize: 15, fontWeight: "600", fontVariant: ["tabular-nums"]},
   hapCode: {fontSize: 30, fontWeight: "700", letterSpacing: 2, marginVertical: 12, fontVariant: ["tabular-nums"]},
   wifiDot: {width: 8, height: 8, borderRadius: 4, marginRight: 7},
+  modalBackdrop: {flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24},
+  modalSheet: {borderRadius: 16, borderWidth: 1, padding: 18},
   input: {borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginVertical: 6, fontSize: 15},
   button: {backgroundColor: ACCENT, borderRadius: 10, paddingVertical: 12, alignItems: "center", marginTop: 10, marginBottom: 8},
   buttonSecondary: {backgroundColor: "transparent"},

@@ -247,6 +247,7 @@ conds:
       libs:
         - location: https://github.com/mongoose-os-libs/bt-common
         - location: https://github.com/mongoose-os-libs/rpc-gatts
+        - location: https://github.com/mongoose-os-libs/rpc-service-wifi
       config_schema:
         - ["bt.enable", true]
         - ["bt.adv_enable", true]
@@ -257,6 +258,7 @@ conds:
       libs:
         - location: https://github.com/mongoose-os-libs/bt-common
         - location: https://github.com/mongoose-os-libs/rpc-gatts
+        - location: https://github.com/mongoose-os-libs/rpc-service-wifi
       config_schema:
         - ["bt.enable", true]
         - ["bt.adv_enable", true]
