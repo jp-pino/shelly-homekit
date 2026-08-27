@@ -26,6 +26,14 @@ import {BleManager, Device} from "react-native-ble-plx";
 import {MosRpcClient, RPC_SVC} from "./src/MosRpc";
 import {setupHomeKit, HapSetup} from "./src/HomeKit";
 import {QrCode} from "./src/QrCode";
+import {
+  StockInfo,
+  ConvertStep,
+  probeDevice,
+  scanSubnet,
+  forkModelFor,
+  convertStockToHomeKit,
+} from "./src/StockDevice";
 
 // The phone's current WiFi SSID, so the setup form can pre-fill it. iOS only
 // reveals the SSID with the Access WiFi Information entitlement AND granted
@@ -40,6 +48,19 @@ async function copyToClipboard(text: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+// The phone's own LAN IP (available without any special entitlement), used to
+// derive the subnet to scan for stock devices.
+async function currentWifiIp(): Promise<string | null> {
+  try {
+    const NetInfo = require("@react-native-community/netinfo").default;
+    const state = await NetInfo.fetch("wifi");
+    const ip = (state.details as any)?.ipAddress;
+    return typeof ip === "string" && ip.includes(".") ? ip : null;
+  } catch {
+    return null;
   }
 }
 
@@ -61,7 +82,8 @@ async function currentWifiSsid(): Promise<string | null> {
 
 const ACCENT = "#0071e3";
 
-type Screen = {kind: "scan"} | {kind: "device"; device: Device};
+type Screen =
+    {kind: "scan"} | {kind: "device"; device: Device} | {kind: "stock"};
 
 async function ensurePermissions(): Promise<boolean> {
   if (Platform.OS !== "android") return true;
@@ -95,7 +117,10 @@ export default function App() {
           manager={manager}
           theme={t}
           onPick={(device) => setScreen({kind: "device", device})}
+          onConvertStock={() => setScreen({kind: "stock"})}
         />
+      ) : screen.kind === "stock" ? (
+        <StockConvertScreen theme={t} onBack={() => setScreen({kind: "scan"})} />
       ) : (
         <DeviceScreen
           device={screen.device}
@@ -107,10 +132,11 @@ export default function App() {
   );
 }
 
-function ScanScreen({manager, theme: t, onPick}: {
+function ScanScreen({manager, theme: t, onPick, onConvertStock}: {
   manager: BleManager;
   theme: Theme;
   onPick: (d: Device) => void;
+  onConvertStock: () => void;
 }) {
   const [devices, setDevices] = useState<Map<string, Device>>(new Map());
   const [scanning, setScanning] = useState(false);
@@ -218,6 +244,176 @@ function ScanScreen({manager, theme: t, onPick}: {
         disabled={scanning}
         onPress={startScan}
       />
+      <Button
+        title="Convert a stock device over WiFi →"
+        secondary
+        onPress={onConvertStock}
+      />
+    </View>
+  );
+}
+
+function StockConvertScreen({theme: t, onBack}: {
+  theme: Theme;
+  onBack: () => void;
+}) {
+  const [devices, setDevices] = useState<Map<string, StockInfo>>(new Map());
+  const [scanning, setScanning] = useState(false);
+  const [progress, setProgress] = useState<{done: number; total: number} | null>(
+      null);
+  const [manualIp, setManualIp] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [converting, setConverting] = useState<StockInfo | null>(null);
+  const [steps, setSteps] = useState<string[]>([]);
+  const [done, setDone] = useState(false);
+
+  const scan = useCallback(async () => {
+    setError(null);
+    setDevices(new Map());
+    const ip = await currentWifiIp();
+    if (!ip) {
+      setError("Couldn't determine your WiFi IP. Enter a device IP manually.");
+      return;
+    }
+    setScanning(true);
+    setProgress({done: 0, total: 254});
+    await scanSubnet(
+        ip,
+        (d) => setDevices((prev) => new Map(prev).set(d.ip, d)),
+        (done, total) => setProgress({done, total}));
+    setScanning(false);
+    setProgress(null);
+  }, []);
+
+  useEffect(() => {
+    void scan();
+  }, [scan]);
+
+  const addManual = useCallback(async () => {
+    if (!manualIp) return;
+    setError(null);
+    const d = await probeDevice(manualIp.trim());
+    if (d) {
+      setDevices((prev) => new Map(prev).set(d.ip, d));
+      setManualIp("");
+    } else {
+      setError(`No Shelly device answered at ${manualIp}.`);
+    }
+  }, [manualIp]);
+
+  const convert = useCallback(async (d: StockInfo) => {
+    setConverting(d);
+    setSteps([]);
+    setDone(false);
+    try {
+      await convertStockToHomeKit(
+          d, (s: ConvertStep) => setSteps((prev) => [...prev, s.msg]));
+      setDone(true);
+    } catch (e: any) {
+      setSteps((prev) => [...prev, `Failed: ${e.message}`]);
+    }
+  }, []);
+
+  if (converting) {
+    return (
+      <ScrollView style={styles.fill} contentContainerStyle={{paddingBottom: 24}}>
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          <Text style={[styles.h1, {color: t.ink}]}>
+            Converting {forkModelFor(converting)}
+          </Text>
+          <Text style={[styles.hint, {color: t.muted}]}>{converting.ip}</Text>
+        </View>
+        <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+          {steps.map((s, i) => (
+            <View key={i} style={[styles.row, {marginVertical: 3}]}>
+              {i === steps.length - 1 && !done ? (
+                <ActivityIndicator size="small" color={ACCENT} />
+              ) : (
+                <Text style={{color: t.online}}>✓</Text>
+              )}
+              <Text style={[styles.hint, {color: t.ink, marginLeft: 8, flex: 1}]}>
+                {s}
+              </Text>
+            </View>
+          ))}
+          {steps.length === 0 && <ActivityIndicator color={ACCENT} />}
+        </View>
+        <Button
+          title={done ? "Done" : "Back to scan"}
+          secondary={!done}
+          onPress={onBack}
+        />
+      </ScrollView>
+    );
+  }
+
+  const list = [...devices.values()];
+  return (
+    <View style={styles.fill}>
+      <View style={[styles.card, {backgroundColor: t.card, borderColor: t.border}]}>
+        <Text style={[styles.h1, {color: t.ink}]}>Convert stock device</Text>
+        <Text style={[styles.hint, {color: t.muted}]}>
+          Finds Shelly devices already on your WiFi and installs shelly-homekit
+          over the air. The device is stepped up to the latest stock firmware
+          first (required), then converted. Gen2/Gen3 only.
+        </Text>
+        {error && <Text style={styles.error}>{error}</Text>}
+        <View style={[styles.row, {marginTop: 8}]}>
+          <TextInput
+            style={[styles.input, styles.fill, {color: t.ink, borderColor: t.border, backgroundColor: t.inputBg, marginRight: 8}]}
+            placeholder="Device IP (optional)"
+            placeholderTextColor={t.muted}
+            autoCapitalize="none"
+            keyboardType="numbers-and-punctuation"
+            value={manualIp}
+            onChangeText={setManualIp}
+            onSubmitEditing={addManual}
+          />
+          <Text onPress={addManual} style={{color: ACCENT, fontWeight: "600"}}>
+            Add
+          </Text>
+        </View>
+      </View>
+      <FlatList
+        data={list}
+        keyExtractor={(d) => d.ip}
+        renderItem={({item}) => (
+          <View style={[styles.card, styles.row, {backgroundColor: t.card, borderColor: t.border}]}>
+            <View style={styles.fill}>
+              <Text style={[styles.deviceName, {color: t.ink}]}>
+                {item.isHomekit ? forkModelFor(item) : "Shelly" + item.app}
+              </Text>
+              <Text style={[styles.hint, {color: t.muted}]}>
+                {item.ip} · {item.version}
+                {item.isHomekit ? " · already HomeKit" :
+                    item.gen < 2 ? " · Gen1 (not supported)" : " · stock"}
+              </Text>
+            </View>
+            {!item.isHomekit && item.gen >= 2 ? (
+              <Text
+                onPress={() => convert(item)}
+                style={{color: ACCENT, fontWeight: "600"}}>
+                Convert
+              </Text>
+            ) : null}
+          </View>
+        )}
+        ListEmptyComponent={
+          <Text style={[styles.hint, styles.center, {color: t.muted}]}>
+            {scanning ?
+                `Scanning… ${progress?.done ?? 0}/${progress?.total ?? 254}` :
+                "No devices found."}
+          </Text>
+        }
+      />
+      <Button
+        title={scanning ?
+            `Scanning ${progress?.done ?? 0}/${progress?.total ?? 254}…` :
+            "Scan again"}
+        disabled={scanning}
+        onPress={scan}
+      />
+      <Button title="Back" secondary onPress={onBack} />
     </View>
   );
 }

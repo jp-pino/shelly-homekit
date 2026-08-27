@@ -13,7 +13,8 @@
       "bundleIdentifier": "io.github.jppino.shellyhomekit.setup",
       "infoPlist": {
         "NSBluetoothAlwaysUsageDescription": "Bluetooth is used to discover nearby Shelly devices and configure their WiFi.",
-        "NSLocationWhenInUseUsageDescription": "Location access lets the app read your current WiFi network name to pre-fill it during setup."
+        "NSLocationWhenInUseUsageDescription": "Location access lets the app read your current WiFi network name to pre-fill it during setup.",
+        "NSLocalNetworkUsageDescription": "Local network access is used to find Shelly devices on your WiFi and install shelly-homekit over the air."
       }
     },
     "android": {
